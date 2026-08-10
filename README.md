@@ -4,6 +4,8 @@ A native desktop app that turns a creative brief plus image, video, and audio
 references into a structured full-reference video prompt, powered by a local
 or remote [Ollama](https://ollama.com) vision model.
 
+![vWriter UI](assets/screenshot.png)
+
 vWriter follows the official MiniMax H3 full-reference prompt-writing guide to
 produce a six-section prompt (`subject_definitions`, `summary`,
 `retention_analysis`, `detailed_description`, `overall_soundscape`,
@@ -11,16 +13,17 @@ produce a six-section prompt (`subject_definitions`, `summary`,
 
 ## Features
 
-- Full-reference mode: up to 9 pictures, 3 videos, and 3 audio files
+- **Full-reference media support**: up to 9 pictures, 3 videos, and 3 audio files
   (12 assets total), numbered as `<Picture N>`, `<Video N>`, `<Audio N>`.
-- Ordered video contact sheets with Auto, 6-frame, and 8-frame sampling.
-- Works with any vision-capable model installed in Ollama.
-- Local or remote Ollama server — point the app at any reachable URL.
-- Automatic context planning (8K/16K/24K) with manual override.
-- Output audit with one automatic narrow-repair pass.
-- Editable output, copy, text-only refine, cancel, and keep-loaded control.
-- User-editable advanced system prompt.
-- Portable: settings live in `config.json` next to the executable.
+- **Semantic Asset Types & Roles**: Assign custom types (`person`, `scene`, `clothes`, `accessory`, `reference`, `movement`, `camera`, `music`, `voice`) and labels (e.g. *John*, *office background*) directly to reference assets.
+- **Audio-to-Image Voice Linking**: Link audio voice tracks directly to reference person images.
+- **Interactive Syntax Highlighting**: Colorized view for generated prompts with instant **`Edit` / `Show`** mode toggle.
+- **Live Preset & Template Store**: Real-time auto-saving into templates, with automatic `DEFAULT` preset loading on startup.
+- **Ordered Video Contact Sheets**: Auto, 6-frame, and 8-frame video sampling modes.
+- **Ollama Integration**: Works with any vision-capable model installed on local or remote Ollama servers.
+- **Automatic Context Planning**: Handles context budgets (8K/16K/24K) with manual override capabilities.
+- **Output Audit & Repair**: Automatic format compliance check with narrow repair pass.
+- **Portable Configuration**: Window size (min 1000x800), panel layouts, and settings live in `config.json` next to the executable.
 
 ## Requirements
 
@@ -53,49 +56,27 @@ bash build_linux.sh
 bash build_macos.sh
 ```
 
-The Windows script launches the application after a successful build; the
-Linux and macOS scripts only compile it.
+## Release Script
 
-## Release builds and app icon
+To create a new release package for Windows 64-bit, macOS Silicon (ARM64), and Linux 64-bit:
+
+```sh
+bash release.sh
+```
+
+The release script will:
+1. Prompt for a release version tag (e.g. `v1.0.0`) and verify it does not already exist.
+2. Prompt for your GitHub token (or read `$GITHUB_TOKEN` from environment).
+3. Cross-compile binaries for Windows (x64), macOS (ARM64), and Linux (x64).
+4. Create release `.zip` archives containing the compiled executables.
+5. Ask for confirmation before creating the git tag, pushing to GitHub, and publishing the release assets.
+
+## App Icon and packaging
 
 `appicon.png` is the production app icon. It is generated from the editable
 source at `assets/appicon.svg` and is picked up automatically by Gio's
-`gogio` packager for macOS and Linux bundles. On Windows, the generated
-`vwriter_windows_amd64.syso` embeds the same icon in every executable,
-including binaries created by `go run .`.
-
-```sh
-go install gioui.org/cmd/gogio@v0.10.1
-gogio -target windows -o dist/vWriter.exe .
-gogio -target darwin -o dist/vWriter.app .
-gogio -target linux -o dist/vWriter .
-```
-
-Cross-compiling macOS requires a macOS SDK/toolchain; build its release on a
-Mac when that is not available. The `com.github.jonathanhecl.vwriter` app ID
-is set at startup for platform integration.
-
-## How it works
-
-```text
-Creative brief + local references
-                ↓
-Official MiniMax H3 guide + Ollama vision model
-                ↓
-Editable six-section video prompt
-                ↓
-Copy into your video workflow
-```
-
-## Current limitations
-
-- Audio files are preserved as declared `<Audio N>` references, but the model
-  does not listen to their signal. Their role must be stated in the brief.
-- Video understanding uses the exact ordered contact sheet shown in the
-  preview, not the complete encoded video stream.
-- vWriter generates text only; it does not run a video model.
-- The interface and documentation are in English. Creative briefs may use
-  other languages, and user-supplied dialogue and visible text are preserved.
+`gogio` packager for macOS and Linux bundles. On Windows, `vwriter_windows_amd64.syso`
+embeds the same icon in every executable.
 
 ## License
 
