@@ -112,10 +112,13 @@ func (d *dropdown) Layout(gtx layout.Context, th *material.Theme, options []stri
 
 	if d.open {
 		buttonWidth := dims.Size.X
-		menuWidth := max(buttonWidth, gtx.Dp(640))
-		xOffset := dims.Size.X - menuWidth
-		if xOffset > 0 {
-			xOffset = 0
+		menuWidth := buttonWidth
+		if menuWidth < gtx.Constraints.Min.X {
+			menuWidth = gtx.Constraints.Min.X
+		}
+		xOffset := 0
+		if dims.Size.X < menuWidth {
+			xOffset = dims.Size.X - menuWidth
 		}
 		macro := op.Record(gtx.Ops)
 		off := op.Offset(image.Pt(xOffset, dims.Size.Y+4)).Push(gtx.Ops)

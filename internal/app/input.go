@@ -227,34 +227,38 @@ func (a *App) layoutSystemPrompt(gtx layout.Context) layout.Dimensions {
 			if custom {
 				status = "Custom"
 			}
+			count := len(a.sysEditor.Text())
+			countColor := colorTextDim
+			if count > prompt.MaxSystemPromptChars {
+				countColor = colorDanger
+			}
+
 			children = append(children,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								l := material.Label(a.theme, 12, status)
-								l.Color = colorTextDim
-								return l.Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								count := len(a.sysEditor.Text())
-								l := material.Label(a.theme, 12, fmt.Sprintf("%d / %s", count, formatK(prompt.MaxSystemPromptChars)))
-								if count > prompt.MaxSystemPromptChars {
-									l.Color = colorDanger
-								} else {
-									l.Color = colorTextDim
-								}
-								return l.Layout(gtx)
-							}),
-						)
+						l := material.Label(a.theme, 12, status)
+						l.Color = colorTextDim
+						return l.Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Min.Y = gtx.Dp(80)
-						return a.multilineBox(gtx, &a.sysEditor,
-							"Leave empty to use the built-in full-reference instruction.")
+						return layout.Stack{}.Layout(gtx,
+							layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+								gtx.Constraints.Min.Y = gtx.Dp(80)
+								return a.multilineBox(gtx, &a.sysEditor,
+									"Leave empty to use the built-in full-reference instruction.")
+							}),
+							layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Bottom: 8, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return layout.SE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										l := material.Label(a.theme, 11, fmt.Sprintf("%d / %s", count, formatK(prompt.MaxSystemPromptChars)))
+										l.Color = countColor
+										return l.Layout(gtx)
+									})
+								})
+							}),
+						)
 					})
 				}),
 			)
