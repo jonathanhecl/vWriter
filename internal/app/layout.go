@@ -47,26 +47,26 @@ func (a *App) layout(gtx layout.Context) {
 }
 
 // layoutHeader renders the top bar: brand mark, Ollama endpoint controls, and model controls.
+// layoutHeader renders the top bar: brand mark, Ollama endpoint controls, and model controls.
 func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 	return layout.Inset{Top: 12, Bottom: 12, Left: 18, Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return a.layoutBrand(gtx)
 			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: 24, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return sectionLabel(gtx, a.theme, "Ollama endpoint")
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(200)
-				gtx.Constraints.Max.X = gtx.Dp(200)
+				gtx.Constraints.Min.X = gtx.Dp(180)
+				gtx.Constraints.Max.X = gtx.Dp(180)
 				return a.editorBox(gtx, &a.urlEditor, 34)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: 6, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return a.smallButton(gtx, &a.connectBtn, "Connect")
+				return layout.Inset{Left: 6, Right: 24}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.smallButton(gtx, &a.connectBtn, "Fetch models")
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -74,18 +74,13 @@ func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 					return sectionLabel(gtx, a.theme, "Model")
 				})
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(250)
-				gtx.Constraints.Max.X = gtx.Constraints.Min.X
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return a.layoutModelPicker(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: 6, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return a.smallButton(gtx, &a.refreshBtn, "Refresh")
+				return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.smallButton(gtx, &a.unloadBtn, "Unload")
 				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.smallButton(gtx, &a.unloadBtn, "Unload")
 			}),
 		)
 	})
@@ -127,6 +122,39 @@ func (a *App) layoutBrand(gtx layout.Context) layout.Dimensions {
 	)
 }
 
+// formatModelDisplay formats a model entry so that the end of the name
+// (model variant, tag, quantization, size) is always preserved and visible.
+func formatModelDisplay(name, size string, maxLen int) string {
+	cleaned := strings.TrimPrefix(name, "hf.co/")
+	suffix := ""
+	if size != "" {
+		suffix = fmt.Sprintf(" (%s)", size)
+	}
+
+	total := cleaned + suffix
+	if len([]rune(total)) <= maxLen {
+		return total
+	}
+
+	// Try stripping author/username prefix if present.
+	if slashIdx := strings.Index(cleaned, "/"); slashIdx >= 0 {
+		withoutUser := cleaned[slashIdx+1:]
+		totalNoUser := withoutUser + suffix
+		if len([]rune(totalNoUser)) <= maxLen {
+			return totalNoUser
+		}
+		cleaned = withoutUser
+	}
+
+	targetLen := maxLen - len([]rune(suffix)) - 1
+	runesCleaned := []rune(cleaned)
+	if len(runesCleaned) > targetLen && targetLen > 0 {
+		cleaned = "…" + string(runesCleaned[len(runesCleaned)-targetLen:])
+	}
+
+	return cleaned + suffix
+}
+
 // layoutModelPicker renders the model dropdown and its status.
 func (a *App) layoutModelPicker(gtx layout.Context) layout.Dimensions {
 	a.mu.Lock()
@@ -148,7 +176,7 @@ func (a *App) layoutModelPicker(gtx layout.Context) layout.Dimensions {
 		)
 	}
 	if len(models) == 0 {
-		text := "No models — check the URL and press Connect"
+		text := "No models — click Fetch models"
 		if modelsErr != "" {
 			text = modelsErr
 		}
@@ -159,7 +187,7 @@ func (a *App) layoutModelPicker(gtx layout.Context) layout.Dimensions {
 	options := make([]string, len(models))
 	selected := 0
 	for index, model := range models {
-		options[index] = fmt.Sprintf("%s (%s)", model.Name, model.Size)
+		options[index] = formatModelDisplay(model.Name, model.Size, 70)
 		if model.Name == a.cfg.Model {
 			selected = index
 		}
@@ -169,7 +197,7 @@ func (a *App) layoutModelPicker(gtx layout.Context) layout.Dimensions {
 		a.cfg.Model = models[chosen].Name
 		a.saveConfig()
 	}
-	return layout.Dimensions{Size: image.Pt(gtx.Dp(300), gtx.Dp(34))}
+	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Min.X, gtx.Dp(34))}
 }
 
 // layoutFooter renders the generation status, progress, and memory action.

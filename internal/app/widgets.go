@@ -61,6 +61,7 @@ type dropdown struct {
 	open  bool
 	btn   widget.Clickable
 	items []widget.Clickable
+	list  layout.List
 }
 
 // Layout renders the dropdown and reports a new selection.
@@ -111,11 +112,16 @@ func (d *dropdown) Layout(gtx layout.Context, th *material.Theme, options []stri
 
 	if d.open {
 		buttonWidth := dims.Size.X
+		menuWidth := max(buttonWidth, gtx.Dp(640))
+		xOffset := dims.Size.X - menuWidth
+		if xOffset > 0 {
+			xOffset = 0
+		}
 		macro := op.Record(gtx.Ops)
-		off := op.Offset(image.Pt(0, dims.Size.Y+4)).Push(gtx.Ops)
+		off := op.Offset(image.Pt(xOffset, dims.Size.Y+4)).Push(gtx.Ops)
 		menuGtx := gtx
-		menuGtx.Constraints.Min = image.Pt(buttonWidth, 0)
-		menuGtx.Constraints.Max.X = buttonWidth
+		menuGtx.Constraints.Min = image.Pt(menuWidth, 0)
+		menuGtx.Constraints.Max.X = menuWidth
 		d.layoutMenu(menuGtx, th, options, selected)
 		off.Pop()
 		op.Defer(gtx.Ops, macro.Stop())
@@ -124,6 +130,12 @@ func (d *dropdown) Layout(gtx layout.Context, th *material.Theme, options []stri
 }
 
 func (d *dropdown) layoutMenu(gtx layout.Context, th *material.Theme, options []string, selected int) layout.Dimensions {
+	d.list.Axis = layout.Vertical
+	maxHeight := gtx.Dp(360)
+	if gtx.Constraints.Max.Y > maxHeight || gtx.Constraints.Max.Y == 0 {
+		gtx.Constraints.Max.Y = maxHeight
+	}
+
 	return layout.Stack{}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			bordered(gtx, 6, colorSurface, colorBorder)
@@ -131,25 +143,21 @@ func (d *dropdown) layoutMenu(gtx layout.Context, th *material.Theme, options []
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				children := make([]layout.FlexChild, len(options))
-				for index, option := range options {
-					index, option := index, option
-					children[index] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return d.items[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								l := material.Label(th, 13, option)
-								if index == selected {
-									l.Color = colorAccent
-								} else {
-									l.Color = colorText
-								}
-								l.MaxLines = 1
-								return l.Layout(gtx)
-							})
+				return d.list.Layout(gtx, len(options), func(gtx layout.Context, index int) layout.Dimensions {
+					option := options[index]
+					return d.items[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(th, 13, option)
+							if index == selected {
+								l.Color = colorAccent
+							} else {
+								l.Color = colorText
+							}
+							l.MaxLines = 1
+							return l.Layout(gtx)
 						})
 					})
-				}
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+				})
 			})
 		}),
 	)
