@@ -84,7 +84,13 @@ type App struct {
 	restoreBtn      widget.Clickable
 	addFileBtn      widget.Clickable
 	addMediaBtn     widget.Clickable
+	addMediaCardBtn widget.Clickable
 	clearMediaBtn   widget.Clickable
+	filterAllBtn    widget.Clickable
+	filterImgBtn    widget.Clickable
+	filterVidBtn    widget.Clickable
+	filterAudBtn    widget.Clickable
+	mediaFilter     string // "all", "image", "video", "audio"
 	connectBtn      widget.Clickable
 	refreshBtn      widget.Clickable
 	unloadBtn       widget.Clickable

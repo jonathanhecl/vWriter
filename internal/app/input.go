@@ -39,47 +39,74 @@ func (a *App) layoutInput(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-// layoutTargetSection renders the duration slider and aspect ratio picker.
+var aspectDisplayNames = []string{
+	"16:9  Widescreen",
+	"9:16  Vertical",
+	"1:1  Square",
+	"4:3  Standard",
+	"3:4  Portrait",
+	"3:2  Classic",
+	"2:3  Book",
+	"21:9  Ultrawide",
+}
+
+// layoutTargetSection renders the duration slider and aspect ratio picker side-by-side.
 func (a *App) layoutTargetSection(gtx layout.Context) layout.Dimensions {
 	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return sectionLabel(gtx, a.theme, "Duration")
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(a.theme, 13, fmt.Sprintf("%d s", a.durationSeconds()))
-						l.Color = colorText
-						return l.Layout(gtx)
-					}),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 6, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					slider := material.Slider(a.theme, &a.duration)
-					slider.Color = colorAccent
-					return slider.Layout(gtx)
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+			// DURATION (Left half)
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return sectionLabel(gtx, a.theme, "DURATION")
+								}),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									l := material.Label(a.theme, 13, fmt.Sprintf("%d seconds", a.durationSeconds()))
+									l.Color = colorText
+									return l.Layout(gtx)
+								}),
+							)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.Background{}.Layout(gtx,
+									func(gtx layout.Context) layout.Dimensions {
+										bordered(gtx, 6, colorSurface, colorBorder)
+										return layout.Dimensions{Size: gtx.Constraints.Min}
+									},
+									func(gtx layout.Context) layout.Dimensions {
+										return layout.Inset{Left: 10, Right: 10, Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+											slider := material.Slider(a.theme, &a.duration)
+											slider.Color = colorAccent
+											return slider.Layout(gtx)
+										})
+									},
+								)
+							})
+						}),
+					)
 				})
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+			// ASPECT RATIO (Right half)
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return sectionLabel(gtx, a.theme, "Aspect ratio")
-						})
+						return sectionLabel(gtx, a.theme, "ASPECT RATIO")
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Min.X = gtx.Dp(120)
-						gtx.Constraints.Max.X = gtx.Constraints.Min.X
-						chosen, changed := a.aspectDropdown.Layout(gtx, a.theme, aspectOptions, a.aspectIndex)
-						if changed {
-							a.aspectIndex = chosen
-							a.cfg.AspectRatio = aspectOptions[chosen]
-							a.saveConfig()
-						}
-						return layout.Dimensions{Size: image.Pt(gtx.Dp(120), gtx.Dp(34))}
+						return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							chosen, changed := a.aspectDropdown.Layout(gtx, a.theme, aspectDisplayNames, a.aspectIndex)
+							if changed {
+								a.aspectIndex = chosen
+								a.cfg.AspectRatio = aspectOptions[chosen]
+								a.saveConfig()
+							}
+							return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(36))}
+						})
 					}),
 				)
 			}),
@@ -97,23 +124,35 @@ func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 		}
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{}.Layout(gtx,
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return sectionLabel(gtx, a.theme, "Creative direction")
+						return sectionLabel(gtx, a.theme, "CREATIVE BRIEF")
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(a.theme, 12, fmt.Sprintf("%d / 2,000", count))
-						l.Color = countColor
+						l := material.Label(a.theme, 12, "Describe what should happen in the video")
+						l.Color = colorTextDim
 						return l.Layout(gtx)
 					}),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.Y = gtx.Dp(112)
-					return a.multilineBox(gtx, &a.briefEditor,
-						"Describe the video and the role of each reference.")
+				return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Stack{}.Layout(gtx,
+						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.Y = gtx.Dp(112)
+							return a.multilineBox(gtx, &a.briefEditor, "Describe the video and the role of each reference.")
+						}),
+						layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Bottom: 8, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									l := material.Label(a.theme, 11, fmt.Sprintf("%d / 2,000", count))
+									l.Color = countColor
+									return l.Layout(gtx)
+								})
+							})
+						}),
+					)
 				})
 			}),
 		)

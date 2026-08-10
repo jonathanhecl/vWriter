@@ -43,51 +43,184 @@ func (a *App) widgetsFor(assetID string) *assetWidgets {
 // layoutMediaSection renders the media header and the asset cards.
 func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 	assets := a.engine.Store.List(a.session)
+
+	imgCount, vidCount, audCount := 0, 0, 0
+	for _, asset := range assets {
+		switch asset.Type {
+		case media.Image:
+			imgCount++
+		case media.Video:
+			vidCount++
+		case media.Audio:
+			audCount++
+		}
+	}
+
+	filter := a.mediaFilter
+	if filter == "" {
+		filter = "all"
+	}
+
 	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
-		children := []layout.FlexChild{
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			// Header Top Row
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return sectionLabel(gtx, a.theme, fmt.Sprintf("Reference media (%d/12)", len(assets)))
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return sectionLabel(gtx, a.theme, "MEDIA")
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								l := material.Label(a.theme, 16, "Images, video & audio")
+								l.Color = colorText
+								return l.Layout(gtx)
+							}),
+						)
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if len(assets) == 0 {
 							return layout.Dimensions{}
 						}
-						return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.smallButton(gtx, &a.clearMediaBtn, "Clear")
-						})
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.smallButton(gtx, &a.addFileBtn, "Add file")
-						})
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.smallButton(gtx, &a.addMediaBtn, "Add multiple")
+						return a.smallButton(gtx, &a.clearMediaBtn, "Clear")
 					}),
 				)
 			}),
+			// Subtitle
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 4, Bottom: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return bodyText(gtx, a.theme, "Up to 9 images, 3 videos, and 3 audio files. Clips must be 2–15 seconds.")
+				return layout.Inset{Top: 2, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(a.theme, 12, "Add up to 9 images, 3 videos and 3 audio files.")
+					l.Color = colorTextDim
+					return l.Layout(gtx)
 				})
 			}),
-		}
-		for index, asset := range assets {
-			index, asset := index, asset
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Bottom: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return a.layoutAssetCard(gtx, asset, index, len(assets))
+			// Filter Pills Row
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Bottom: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.filterPill(gtx, &a.filterAllBtn, fmt.Sprintf("All %d/12", len(assets)), filter == "all")
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.filterPill(gtx, &a.filterImgBtn, fmt.Sprintf("🖼 Images %d/9", imgCount), filter == "image")
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.filterPill(gtx, &a.filterVidBtn, fmt.Sprintf("🎬 Video %d/3", vidCount), filter == "video")
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.filterPill(gtx, &a.filterAudBtn, fmt.Sprintf("🎵 Audio %d/3", audCount), filter == "audio")
+						}),
+					)
 				})
-			}))
-		}
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+			}),
+			// Asset Grid / Horizontal Card Row
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				var filteredAssets []*media.Asset
+				for _, asset := range assets {
+					switch filter {
+					case "image":
+						if asset.Type == media.Image {
+							filteredAssets = append(filteredAssets, asset)
+						}
+					case "video":
+						if asset.Type == media.Video {
+							filteredAssets = append(filteredAssets, asset)
+						}
+					case "audio":
+						if asset.Type == media.Audio {
+							filteredAssets = append(filteredAssets, asset)
+						}
+					default:
+						filteredAssets = append(filteredAssets, asset)
+					}
+				}
+
+				totalItems := len(filteredAssets) + 1
+				a.mediaList.Axis = layout.Horizontal
+
+				return a.mediaList.Layout(gtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
+					if index < len(filteredAssets) {
+						asset := filteredAssets[index]
+						return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.layoutAssetCard(gtx, asset, index, len(filteredAssets))
+						})
+					}
+					return a.layoutAddMediaCard(gtx)
+				})
+			}),
+		)
 	})
 }
 
-// layoutAssetCard renders one asset: thumbnail, reference, actions.
+func (a *App) filterPill(gtx layout.Context, btn *widget.Clickable, label string, active bool) layout.Dimensions {
+	return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		bgColor := colorSurface
+		textColor := colorTextDim
+		if active {
+			bgColor = colorCard
+			textColor = colorText
+		}
+		return layout.Background{}.Layout(gtx,
+			func(gtx layout.Context) layout.Dimensions {
+				bordered(gtx, 14, bgColor, colorBorder)
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			},
+			func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 4, Bottom: 4, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(a.theme, 12, label)
+					l.Color = textColor
+					return l.Layout(gtx)
+				})
+			},
+		)
+	})
+}
+
+func (a *App) layoutAddMediaCard(gtx layout.Context) layout.Dimensions {
+	cardWidth := gtx.Dp(145)
+	cardHeight := gtx.Dp(135)
+	gtx.Constraints.Min = image.Pt(cardWidth, cardHeight)
+	gtx.Constraints.Max = gtx.Constraints.Min
+
+	return a.addMediaCardBtn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Background{}.Layout(gtx,
+			func(gtx layout.Context) layout.Dimensions {
+				bordered(gtx, 8, colorSurface, colorBorder)
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			},
+			func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(a.theme, 20, "+")
+							l.Color = colorTextDim
+							return l.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(a.theme, 12, "Add media")
+							l.Color = colorText
+							return l.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(a.theme, 10, "Drop files here")
+							l.Color = colorTextDim
+							return l.Layout(gtx)
+						}),
+					)
+				})
+			},
+		)
+	})
+}
+
+// layoutAssetCard renders one asset in card mode.
 func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, total int) layout.Dimensions {
 	widgets := a.widgetsFor(asset.ID)
 	if widgets.preview.Clicked(gtx) {
@@ -103,87 +236,112 @@ func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, tot
 		_ = a.engine.Store.Remove(a.session, asset.ID)
 		return layout.Dimensions{}
 	}
-	if widgets.up.Clicked(gtx) && index > 0 {
-		a.moveAsset(index, index-1)
-	}
-	if widgets.down.Clicked(gtx) && index < total-1 {
-		a.moveAsset(index, index+1)
-	}
-	if widgets.analysis.Clicked(gtx) {
-		_, _ = a.engine.Store.SetAnalysis(a.session, asset.ID, !asset.AnalysisRequested)
-	}
+
+	cardWidth := gtx.Dp(145)
+	gtx.Constraints.Min.X = cardWidth
+	gtx.Constraints.Max.X = cardWidth
 
 	return layout.Stack{}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			bordered(gtx, 6, colorCard, colorBorder)
+			bordered(gtx, 8, colorCard, colorBorder)
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return widgets.preview.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.assetThumb(gtx, asset)
-						})
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Left: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									l := material.Label(a.theme, 13, asset.Reference)
-									l.Color = colorAccent
-									return l.Layout(gtx)
-								}),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									l := material.Label(a.theme, 12, assetMeta(asset))
-									l.Color = colorTextDim
-									l.MaxLines = 1
-									return l.Layout(gtx)
-								}),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									if asset.Type == media.Audio {
-										return bodyText(gtx, a.theme, "Declared only — the model does not hear audio")
-									}
-									if !asset.AnalysisRequested {
-										l := material.Label(a.theme, 11, "Excluded from AI analysis")
-										l.Color = colorDanger
-										return l.Layout(gtx)
-									}
-									return layout.Dimensions{}
-								}),
-							)
-						})
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.iconButton(gtx, &widgets.up, "↑", index > 0)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.iconButton(gtx, &widgets.down, "↓", index < total-1)
-									}),
-								)
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				// Thumbnail top
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return widgets.preview.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Stack{}.Layout(gtx,
+							layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+								return a.assetThumbCard(gtx, asset, cardWidth, gtx.Dp(85))
 							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										label := "AI ✓"
-										if !asset.AnalysisRequested {
-											label = "AI ✗"
-										}
-										return a.iconButton(gtx, &widgets.analysis, label, true)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.iconButton(gtx, &widgets.remove, "✕", true)
-									}),
-								)
+							layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+								if asset.Type == media.Video && asset.Duration > 0 {
+									return layout.Inset{Top: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										return layout.NE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+											return layout.Background{}.Layout(gtx,
+												func(gtx layout.Context) layout.Dimensions {
+													fill(gtx, 4, colorBackground)
+													return layout.Dimensions{Size: gtx.Constraints.Min}
+												},
+												func(gtx layout.Context) layout.Dimensions {
+													return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+														mins := int(asset.Duration) / 60
+														secs := int(asset.Duration) % 60
+														l := material.Label(a.theme, 10, fmt.Sprintf("%02d:%02d", mins, secs))
+														l.Color = colorText
+														return l.Layout(gtx)
+													})
+												},
+											)
+										})
+									})
+								}
+								return layout.Dimensions{}
 							}),
 						)
-					}),
-				)
+					})
+				}),
+				// Bottom Footer Bar
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 6, Bottom: 6, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										l := material.Label(a.theme, 12, fmt.Sprintf("<%s>", asset.Reference))
+										l.Color = colorText
+										l.MaxLines = 1
+										return l.Layout(gtx)
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										sub := asset.ID
+										if len(sub) > 12 {
+											sub = sub[:12] + "..."
+										}
+										l := material.Label(a.theme, 10, sub)
+										l.Color = colorTextDim
+										l.MaxLines = 1
+										return l.Layout(gtx)
+									}),
+								)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return a.iconButton(gtx, &widgets.remove, "✕", true)
+							}),
+						)
+					})
+				}),
+			)
+		}),
+	)
+}
+
+// assetThumbCard renders the preview thumbnail for cards.
+func (a *App) assetThumbCard(gtx layout.Context, asset *media.Asset, width, height int) layout.Dimensions {
+	gtx.Constraints.Min = image.Pt(width, height)
+	gtx.Constraints.Max = image.Pt(width, height)
+	if asset.PreviewPath != "" {
+		if img := a.loadImage(asset.PreviewPath); img != nil {
+			return widget.Image{Src: paint.NewImageOp(img), Fit: widget.Cover, Scale: 1}.Layout(gtx)
+		}
+	}
+	return layout.Stack{}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			fill(gtx, 4, colorSurface)
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				icon := "🖼"
+				if asset.Type == media.Video {
+					icon = "🎬"
+				} else if asset.Type == media.Audio {
+					icon = "🎵"
+				}
+				l := material.Label(a.theme, 22, icon)
+				l.Color = colorTextDim
+				return l.Layout(gtx)
 			})
 		}),
 	)
@@ -201,35 +359,6 @@ func (a *App) moveAsset(from, to int) {
 	}
 	ids[from], ids[to] = ids[to], ids[from]
 	_, _ = a.engine.Store.Reorder(a.session, ids)
-}
-
-// assetThumb renders the preview thumbnail or a type placeholder.
-func (a *App) assetThumb(gtx layout.Context, asset *media.Asset) layout.Dimensions {
-	size := gtx.Dp(56)
-	gtx.Constraints.Min = image.Pt(size, size)
-	gtx.Constraints.Max = image.Pt(size, size)
-	if asset.PreviewPath != "" {
-		if img := a.loadImage(asset.PreviewPath); img != nil {
-			return widget.Image{Src: paint.NewImageOp(img), Fit: widget.Cover, Scale: 1}.Layout(gtx)
-		}
-	}
-	return layout.Stack{}.Layout(gtx,
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			fill(gtx, 4, colorSurface)
-			return layout.Dimensions{Size: gtx.Constraints.Min}
-		}),
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				icon := "♪"
-				if asset.Type == media.Video {
-					icon = "▶"
-				}
-				l := material.Label(a.theme, 20, icon)
-				l.Color = colorTextDim
-				return l.Layout(gtx)
-			})
-		}),
-	)
 }
 
 // loadImage decodes and caches a preview image.

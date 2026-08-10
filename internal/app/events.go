@@ -13,11 +13,23 @@ func (a *App) handleEvents(gtx layout.Context) {
 	if a.refreshBtn.Clicked(gtx) {
 		a.refreshModels()
 	}
-	if a.addFileBtn.Clicked(gtx) {
+	if a.addFileBtn.Clicked(gtx) || a.addMediaCardBtn.Clicked(gtx) {
 		a.addFile()
 	}
 	if a.addMediaBtn.Clicked(gtx) {
 		a.addMedia()
+	}
+	if a.filterAllBtn.Clicked(gtx) {
+		a.mediaFilter = "all"
+	}
+	if a.filterImgBtn.Clicked(gtx) {
+		a.mediaFilter = "image"
+	}
+	if a.filterVidBtn.Clicked(gtx) {
+		a.mediaFilter = "video"
+	}
+	if a.filterAudBtn.Clicked(gtx) {
+		a.mediaFilter = "audio"
 	}
 	if a.clearMediaBtn.Clicked(gtx) {
 		a.engine.Store.Clear(a.session)
