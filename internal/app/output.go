@@ -2,10 +2,13 @@ package app
 
 import (
 	"fmt"
+	"image"
 	"strings"
 
 	"gioui.org/layout"
 	"gioui.org/widget/material"
+
+	"github.com/jonathanhecl/vWriter/internal/engine"
 )
 
 // layoutOutput renders the right column: the generated prompt editor, its
@@ -17,6 +20,15 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 				return a.layoutOutputHeader(gtx)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				a.mu.Lock()
+				generating := a.generating
+				phase := a.phase
+				tokens := a.streamTokens
+				a.mu.Unlock()
+
+				if generating && strings.TrimSpace(a.outputEditor.Text()) == "" {
+					return a.layoutOutputGenerating(gtx, phase, tokens)
+				}
 				if !a.hasResult && strings.TrimSpace(a.outputEditor.Text()) == "" {
 					return a.layoutOutputEmpty(gtx)
 				}
@@ -29,6 +41,47 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 				return a.layoutRefineBar(gtx)
 			}),
 		)
+	})
+}
+
+// layoutOutputGenerating renders a centered loading card inside the prompt workspace while generating.
+func (a *App) layoutOutputGenerating(gtx layout.Context, phase string, tokens int) layout.Dimensions {
+	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Max.X = gtx.Dp(440)
+		return card(gtx, 22, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						loaderGtx := gtx
+						loaderGtx.Constraints.Min = image.Pt(gtx.Dp(36), gtx.Dp(36))
+						loaderGtx.Constraints.Max = loaderGtx.Constraints.Min
+						return material.Loader(a.theme).Layout(loaderGtx)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(a.theme, 20, "Generating prompt…")
+							l.Color = colorText
+							return l.Layout(gtx)
+						})
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 8, Bottom: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						text := phaseLabel(phase)
+						if phase == engine.PhaseGenerating && tokens > 0 {
+							text = fmt.Sprintf("%s · %d tokens", text, tokens)
+						}
+						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(a.theme, 13, text)
+							l.Color = colorAccent
+							return l.Layout(gtx)
+						})
+					})
+				}),
+			)
+		})
 	})
 }
 
