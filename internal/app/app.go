@@ -95,6 +95,7 @@ type App struct {
 	scrollRightBtn     widget.Clickable
 	scrollbarClickable widget.Clickable
 	mediaDrag          gesture.Drag
+	dividerDrag        gesture.Drag
 	mediaFilter        string // "all", "image", "video", "audio"
 	connectBtn      widget.Clickable
 	refreshBtn      widget.Clickable

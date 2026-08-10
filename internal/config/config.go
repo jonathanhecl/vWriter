@@ -22,6 +22,7 @@ type Config struct {
 	AspectRatio          string  `json:"aspect_ratio"`
 	CreativeBrief        string  `json:"creative_brief"`
 	SystemPromptOverride string  `json:"system_prompt_override"` // empty means default
+	LeftPanelWidth       int     `json:"left_panel_width,omitempty"`
 }
 
 // Default returns the out-of-the-box settings.
@@ -31,6 +32,7 @@ func Default() *Config {
 		ContextProfile:  "auto",
 		DurationSeconds: 10,
 		AspectRatio:     "16:9",
+		LeftPanelWidth:  460,
 	}
 }
 

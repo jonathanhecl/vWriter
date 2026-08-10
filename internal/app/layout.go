@@ -6,7 +6,10 @@ import (
 	"image/color"
 	"strings"
 
+	"gioui.org/gesture"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -24,9 +27,15 @@ func (a *App) layout(gtx layout.Context) {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return a.layoutHeader(gtx) }),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					leftWidth := a.cfg.LeftPanelWidth
+					if leftWidth < 300 {
+						leftWidth = 300
+					} else if leftWidth > 850 {
+						leftWidth = 850
+					}
 					return layout.Flex{}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Max.X = gtx.Dp(460)
+							gtx.Constraints.Max.X = gtx.Dp(unit.Dp(leftWidth))
 							gtx.Constraints.Min.X = gtx.Constraints.Max.X
 							return a.layoutInput(gtx)
 						}),
@@ -313,9 +322,49 @@ func phaseLabel(phase string) string {
 }
 
 func (a *App) vDivider(gtx layout.Context) layout.Dimensions {
-	width := gtx.Dp(1)
-	paint.FillShape(gtx.Ops, colorBorder, clip.Rect(image.Rect(0, 0, width, gtx.Constraints.Max.Y)).Op())
-	return layout.Dimensions{Size: image.Pt(width, gtx.Constraints.Max.Y)}
+	hitWidth := gtx.Dp(8)
+	lineWidth := gtx.Dp(1)
+	lineOffset := (hitWidth - lineWidth) / 2
+
+	rect := clip.Rect(image.Rect(0, 0, hitWidth, gtx.Constraints.Max.Y)).Push(gtx.Ops)
+	a.dividerDrag.Add(gtx.Ops)
+	pointer.CursorColResize.Add(gtx.Ops)
+	rect.Pop()
+
+	// Process drag events on divider
+	for {
+		event, ok := a.dividerDrag.Update(gtx.Metric, gtx.Source, gesture.Horizontal)
+		if !ok {
+			break
+		}
+		if event.Kind == pointer.Drag {
+			deltaDp := int(event.Position.X / float32(gtx.Dp(1)))
+			if deltaDp != 0 {
+				totalWidthDp := int(float32(gtx.Constraints.Max.X) / float32(gtx.Dp(1)))
+				minLeft := 250
+				maxLeft := max(totalWidthDp-250, minLeft)
+
+				newWidth := a.cfg.LeftPanelWidth + deltaDp
+				if newWidth < minLeft {
+					newWidth = minLeft
+				} else if newWidth > maxLeft {
+					newWidth = maxLeft
+				}
+				if newWidth != a.cfg.LeftPanelWidth {
+					a.cfg.LeftPanelWidth = newWidth
+					a.saveConfig()
+					a.window.Invalidate()
+				}
+			}
+		}
+	}
+
+	// Draw 1dp line centered in 8dp hit area
+	off := op.Offset(image.Pt(lineOffset, 0)).Push(gtx.Ops)
+	paint.FillShape(gtx.Ops, colorBorder, clip.Rect(image.Rect(0, 0, lineWidth, gtx.Constraints.Max.Y)).Op())
+	off.Pop()
+
+	return layout.Dimensions{Size: image.Pt(hitWidth, gtx.Constraints.Max.Y)}
 }
 
 // Buttons.
