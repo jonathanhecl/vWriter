@@ -13,6 +13,8 @@ try {
     New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     Push-Location $projectRoot
     try {
+        Get-Process -Name "vWriter" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 200
         Write-Output "[i] Building Windows executable..."
         go build -o $executable .
     }
