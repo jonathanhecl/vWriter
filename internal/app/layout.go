@@ -74,9 +74,14 @@ func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(320)
+				gtx.Constraints.Min.X = gtx.Dp(280)
 				gtx.Constraints.Max.X = gtx.Constraints.Min.X
 				return a.layoutModelPicker(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.smallButton(gtx, &a.unloadBtn, "Unload")
+				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 		)
@@ -196,11 +201,6 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 				)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return a.smallButton(gtx, &a.unloadBtn, "Unload model")
-				})
-			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if generating {
 					return a.dangerButton(gtx, &a.cancelBtn, "Cancel")
