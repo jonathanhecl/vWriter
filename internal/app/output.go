@@ -35,7 +35,9 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: 10, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return card(gtx, 10, func(gtx layout.Context) layout.Dimensions {
 							return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.outputList.Layout(gtx, 1, func(gtx layout.Context, index int) layout.Dimensions {
+								list := material.List(a.theme, &a.outputList)
+								list.Indicator.Color = colorAccent
+								return list.Layout(gtx, 1, func(gtx layout.Context, index int) layout.Dimensions {
 									return a.layoutHighlightedOutput(gtx)
 								})
 							})

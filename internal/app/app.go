@@ -104,7 +104,7 @@ type App struct {
 	unloadBtn          widget.Clickable
 	mediaList          layout.List
 	filterList         layout.List
-	outputList         layout.List
+	outputList         widget.List
 	leftList        widget.List
 	assetWidgetSet  map[string]*assetWidgets
 	modalStateSet   *modalState
