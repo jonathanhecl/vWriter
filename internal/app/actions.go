@@ -377,7 +377,7 @@ func (a *App) saveCurrentPreset(name string) {
 		})
 	}
 
-	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt, presetAssets)
+	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt, a.outputEditor.Text(), presetAssets)
 	if err != nil {
 		a.mu.Lock()
 		a.toasts = append(a.toasts, toastMsg{text: "Failed to save preset: " + err.Error(), isError: true})
@@ -429,6 +429,13 @@ func (a *App) loadPreset(index int) {
 		a.sysEditor.SetText("")
 		a.cfg.SystemPromptOverride = ""
 	}
+	if p.Output != "" {
+		a.outputEditor.SetText(p.Output)
+		a.hasResult = true
+	} else {
+		a.outputEditor.SetText("")
+		a.hasResult = false
+	}
 
 	// Restore media assets if saved
 	if len(p.Assets) > 0 {
@@ -440,6 +447,8 @@ func (a *App) loadPreset(index int) {
 				}
 			}
 		}
+	} else {
+		a.engine.Store.Clear(a.session)
 	}
 
 	a.saveConfig()
@@ -461,6 +470,7 @@ func (a *App) autoSaveCurrentPreset() {
 		aspect = aspectOptions[a.aspectIndex]
 	}
 	sys := a.sysEditor.Text()
+	output := a.outputEditor.Text()
 
 	var presetAssets []config.PresetAsset
 	for _, asset := range a.engine.Store.List(a.session) {
@@ -471,7 +481,7 @@ func (a *App) autoSaveCurrentPreset() {
 		})
 	}
 
-	_, _ = a.presetStore.AddOrUpdate(presetName, brief, dur, aspect, sys, presetAssets)
+	_, _ = a.presetStore.AddOrUpdate(presetName, brief, dur, aspect, sys, output, presetAssets)
 }
 
 // deleteCurrentPreset deletes the currently selected preset (cannot delete DEFAULT).

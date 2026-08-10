@@ -26,6 +26,7 @@ type Preset struct {
 	Duration     int           `json:"duration"`
 	AspectRatio  string        `json:"aspect_ratio"`
 	SystemPrompt string        `json:"system_prompt,omitempty"`
+	Output       string        `json:"output,omitempty"`
 	Assets       []PresetAsset `json:"assets,omitempty"`
 	CreatedAt    string        `json:"created_at"`
 }
@@ -128,7 +129,7 @@ func (s *PresetStore) List() []*Preset {
 }
 
 // AddOrUpdate saves a preset. If a preset with the same Name exists, it updates it.
-func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio, systemPrompt string, assets []PresetAsset) (*Preset, error) {
+func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio, systemPrompt, output string, assets []PresetAsset) (*Preset, error) {
 	if name == "" {
 		name = "Untitled Template"
 	}
@@ -139,6 +140,7 @@ func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio,
 		Duration:     duration,
 		AspectRatio:  aspectRatio,
 		SystemPrompt: systemPrompt,
+		Output:       output,
 		Assets:       assets,
 		CreatedAt:    time.Now().Format(time.RFC3339),
 	}

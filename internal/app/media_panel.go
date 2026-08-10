@@ -415,7 +415,7 @@ func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, tot
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										l := material.Label(a.theme, 12, fmt.Sprintf("<%s>", asset.Reference))
+										l := material.Label(a.theme, 12, asset.Reference)
 										l.Color = colorText
 										l.MaxLines = 1
 										return l.Layout(gtx)

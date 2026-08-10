@@ -18,7 +18,7 @@ func TestPresetStore(t *testing.T) {
 		t.Fatalf("expected DEFAULT preset in new store")
 	}
 
-	p1, err := store.AddOrUpdate("Action Sequence", "Use video 1 as motion reference", 10, "16:9", "", nil)
+	p1, err := store.AddOrUpdate("Action Sequence", "Use video 1 as motion reference", 10, "16:9", "", "", nil)
 	if err != nil {
 		t.Fatalf("failed to add preset: %v", err)
 	}

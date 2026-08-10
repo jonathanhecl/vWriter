@@ -94,7 +94,7 @@ func (a *App) handleEvents(gtx layout.Context) {
 		a.saveConfig()
 		a.autoSaveCurrentPreset()
 	}
-	for _, editor := range []*widget.Editor{&a.urlEditor, &a.briefEditor, &a.sysEditor} {
+	for _, editor := range []*widget.Editor{&a.urlEditor, &a.briefEditor, &a.sysEditor, &a.outputEditor} {
 		for {
 			event, ok := editor.Update(gtx)
 			if !ok {
