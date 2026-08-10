@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
@@ -111,7 +112,6 @@ func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.Y = gtx.Dp(112)
-					gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
 					return a.multilineBox(gtx, &a.briefEditor,
 						"Describe the video and the role of each reference.")
 				})
@@ -246,23 +246,62 @@ func (a *App) collapsibleHeader(gtx layout.Context, state *widget.Bool, title st
 	})
 }
 
-// multilineBox renders a multiline editor inside a bordered box.
+// multilineBox renders a multiline editor with a default box height that
+// automatically expands vertically as text or enter lines are added.
 func (a *App) multilineBox(gtx layout.Context, editor *widget.Editor, hint string) layout.Dimensions {
-	return layout.Stack{}.Layout(gtx,
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			bordered(gtx, 6, colorCard, colorBorder)
-			return layout.Dimensions{Size: gtx.Constraints.Min}
-		}),
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				ed := material.Editor(a.theme, editor, hint)
-				ed.Color = colorText
-				ed.HintColor = colorTextDim
-				ed.TextSize = 13
-				return ed.Layout(gtx)
-			})
-		}),
-	)
+	padding := gtx.Dp(8)
+
+	minWidth := gtx.Constraints.Min.X
+	maxWidth := gtx.Constraints.Max.X
+	if maxWidth == 0 {
+		maxWidth = minWidth
+	}
+	if minWidth == 0 {
+		minWidth = maxWidth
+	}
+
+	minHeight := gtx.Constraints.Min.Y
+	if minHeight == 0 {
+		minHeight = gtx.Dp(112)
+	}
+	maxHeight := gtx.Constraints.Max.Y
+	if maxHeight < minHeight {
+		maxHeight = 1e6
+	}
+
+	minInnerWidth := max(minWidth-padding*2, 0)
+	maxInnerWidth := max(maxWidth-padding*2, 0)
+	minInnerHeight := max(minHeight-padding*2, 0)
+	maxInnerHeight := max(maxHeight-padding*2, minInnerHeight)
+
+	// Record editor drawing operations first to measure actual text height.
+	macro := op.Record(gtx.Ops)
+	editorGtx := gtx
+	editorGtx.Constraints.Min = image.Pt(minInnerWidth, minInnerHeight)
+	editorGtx.Constraints.Max = image.Pt(maxInnerWidth, maxInnerHeight)
+	ed := material.Editor(a.theme, editor, hint)
+	ed.Color = colorText
+	ed.HintColor = colorTextDim
+	ed.TextSize = 13
+	dims := ed.Layout(editorGtx)
+	call := macro.Stop()
+
+	// Compute final box dimensions.
+	finalWidth := max(dims.Size.X+padding*2, minWidth)
+	finalHeight := max(dims.Size.Y+padding*2, minHeight)
+
+	// Draw rounded background box.
+	bgGtx := gtx
+	bgGtx.Constraints.Min = image.Pt(finalWidth, finalHeight)
+	bgGtx.Constraints.Max = image.Pt(finalWidth, finalHeight)
+	bordered(bgGtx, 6, colorCard, colorBorder)
+
+	// Replay editor drawing operations with padding offset.
+	offset := op.Offset(image.Pt(padding, padding)).Push(gtx.Ops)
+	call.Add(gtx.Ops)
+	offset.Pop()
+
+	return layout.Dimensions{Size: image.Pt(finalWidth, finalHeight)}
 }
 
 func formatK(value int) string {
