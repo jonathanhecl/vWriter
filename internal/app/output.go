@@ -141,52 +141,62 @@ func (a *App) emptySteps(gtx layout.Context) layout.Dimensions {
 }
 
 // layoutOutputHeader renders the output title, Modified badge, counts, and
-// action buttons.
+// action buttons — always on two separate rows so buttons never get squished.
 func (a *App) layoutOutputHeader(gtx layout.Context) layout.Dimensions {
 	modified := a.hasResult && a.outputEditor.Text() != a.lastAIMark
-	return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+
+		// Row 1: title + MODIFIED badge + char/word count
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return sectionLabel(gtx, a.theme, "Generated full-reference prompt")
+			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return sectionLabel(gtx, a.theme, "Generated full-reference prompt")
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !modified {
+						return layout.Dimensions{}
+					}
+					return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(a.theme, 11, "MODIFIED")
+						l.Color = colorAccent
+						return l.Layout(gtx)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Left: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						text := a.outputEditor.Text()
+						words := len(strings.Fields(text))
+						return bodyText(gtx, a.theme, fmt.Sprintf("%d chars · %d words", len(text), words))
+					})
+				}),
+			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if !modified {
-				return layout.Dimensions{}
-			}
-			return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				l := material.Label(a.theme, 11, "MODIFIED")
-				l.Color = colorAccent
-				return l.Layout(gtx)
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Left: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				text := a.outputEditor.Text()
-				words := len(strings.Fields(text))
-				return bodyText(gtx, a.theme, fmt.Sprintf("%d chars · %d words", len(text), words))
-			})
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				if !modified {
-					return layout.Dimensions{}
-				}
-				return a.smallButton(gtx, &a.restoreBtn, "Undo edits")
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				if !a.hasResult {
-					return layout.Dimensions{}
-				}
-				return a.smallButton(gtx, &a.refineBtn, "Refine")
-			})
-		}),
+
+		// Row 2: action buttons (only when there's a result)
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !a.hasResult {
 				return layout.Dimensions{}
 			}
-			return a.smallButton(gtx, &a.copyBtn, "Copy prompt")
+			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if !modified {
+							return layout.Dimensions{}
+						}
+						return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.smallButton(gtx, &a.restoreBtn, "Undo edits")
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.smallButton(gtx, &a.refineBtn, "Refine")
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.smallButton(gtx, &a.copyBtn, "Copy prompt")
+					}),
+				)
+			})
 		}),
 	)
 }
