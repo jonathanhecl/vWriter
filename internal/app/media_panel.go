@@ -65,16 +65,18 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			// Header Top Row
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+				return layout.Flex{Alignment: layout.Start}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return sectionLabel(gtx, a.theme, "MEDIA")
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								l := material.Label(a.theme, 16, "Images, video & audio")
-								l.Color = colorText
-								return l.Layout(gtx)
+								return layout.Inset{Top: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									l := material.Label(a.theme, 16, "Images, video & audio")
+									l.Color = colorText
+									return l.Layout(gtx)
+								})
 							}),
 						)
 					}),
@@ -89,7 +91,7 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 			}),
 			// Subtitle
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 2, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					l := material.Label(a.theme, 12, "Add up to 9 images, 3 videos and 3 audio files.")
 					l.Color = colorTextDim
 					return l.Layout(gtx)
@@ -145,7 +147,12 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 				totalItems := len(filteredAssets) + 1
 				a.mediaList.Axis = layout.Horizontal
 
-				return a.mediaList.Layout(gtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
+				hGtx := gtx
+				cardHeight := gtx.Dp(135)
+				hGtx.Constraints.Min.Y = cardHeight
+				hGtx.Constraints.Max.Y = cardHeight
+
+				return a.mediaList.Layout(hGtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
 					if index < len(filteredAssets) {
 						asset := filteredAssets[index]
 						return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

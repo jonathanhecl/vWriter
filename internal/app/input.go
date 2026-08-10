@@ -126,7 +126,9 @@ func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return sectionLabel(gtx, a.theme, "CREATIVE BRIEF")
+						return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return sectionLabel(gtx, a.theme, "CREATIVE BRIEF")
+						})
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -145,7 +147,7 @@ func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 						}),
 						layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Bottom: 8, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.SE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									l := material.Label(a.theme, 11, fmt.Sprintf("%d / 2,000", count))
 									l.Color = countColor
 									return l.Layout(gtx)
