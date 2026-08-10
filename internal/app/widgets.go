@@ -154,13 +154,13 @@ func (d *dropdown) layoutMenu(gtx layout.Context, th *material.Theme, options []
 
 // card wraps content in a rounded surface with padding.
 func card(gtx layout.Context, padding unit.Dp, content layout.Widget) layout.Dimensions {
-	return layout.Stack{}.Layout(gtx,
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			fill(gtx, 8, colorSurface)
+	return layout.Background{}.Layout(gtx,
+		func(gtx layout.Context) layout.Dimensions {
+			bordered(gtx, 10, colorSurface, colorBorder)
 			return layout.Dimensions{Size: gtx.Constraints.Min}
-		}),
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+		},
+		func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(padding).Layout(gtx, content)
-		}),
+		},
 	)
 }

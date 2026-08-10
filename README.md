@@ -42,11 +42,27 @@ Build a binary for your platform:
 go build -o vWriter .
 ```
 
+Convenience scripts build native binaries into `dist/`:
+
+```powershell
+.\build_and_run_win.ps1
+```
+
+```sh
+bash build_linux.sh
+bash build_macos.sh
+```
+
+The Windows script launches the application after a successful build; the
+Linux and macOS scripts only compile it.
+
 ## Release builds and app icon
 
 `appicon.png` is the production app icon. It is generated from the editable
 source at `assets/appicon.svg` and is picked up automatically by Gio's
-`gogio` packager for Windows, macOS, and Linux bundles.
+`gogio` packager for macOS and Linux bundles. On Windows, the generated
+`vwriter_windows_amd64.syso` embeds the same icon in every executable,
+including binaries created by `go run .`.
 
 ```sh
 go install gioui.org/cmd/gogio@v0.10.1

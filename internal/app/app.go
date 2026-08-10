@@ -148,6 +148,7 @@ func Run(window *app.Window) error {
 	var ops op.Ops
 	for {
 		ev := window.Event()
+		centerWindowOnFirstView(window, ev)
 		a.explorer.ListenEvents(ev)
 		switch e := ev.(type) {
 		case app.DestroyEvent:

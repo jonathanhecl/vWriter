@@ -17,6 +17,9 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 				return a.layoutOutputHeader(gtx)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				if !a.hasResult && strings.TrimSpace(a.outputEditor.Text()) == "" {
+					return a.layoutOutputEmpty(gtx)
+				}
 				return layout.Inset{Top: 10, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return a.multilineBox(gtx, &a.outputEditor,
 						"The generated prompt appears here. You can edit it before copying.")
@@ -27,6 +30,61 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 			}),
 		)
 	})
+}
+
+// layoutOutputEmpty gives the empty workspace a clear next action instead of
+// presenting an inactive text field as the primary visual element.
+func (a *App) layoutOutputEmpty(gtx layout.Context) layout.Dimensions {
+	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Max.X = gtx.Dp(440)
+		return card(gtx, 22, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(a.theme, 30, "✦")
+						l.Color = colorAccent
+						return l.Layout(gtx)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(a.theme, 20, "Your prompt workspace")
+							l.Color = colorText
+							return l.Layout(gtx)
+						})
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 7, Bottom: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return bodyText(gtx, a.theme, "Add references, define the direction, then generate.")
+						})
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.emptySteps(gtx)
+				}),
+			)
+		})
+	})
+}
+
+func (a *App) emptySteps(gtx layout.Context) layout.Dimensions {
+	steps := []string{"01  References", "02  Direction", "03  Generate"}
+	return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return bodyText(gtx, a.theme, steps[0])
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return bodyText(gtx, a.theme, steps[1])
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return bodyText(gtx, a.theme, steps[2]) }),
+	)
 }
 
 // layoutOutputHeader renders the output title, Modified badge, counts, and

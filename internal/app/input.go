@@ -71,6 +71,7 @@ func (a *App) layoutTargetSection(gtx layout.Context) layout.Dimensions {
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints.Min.X = gtx.Dp(120)
+						gtx.Constraints.Max.X = gtx.Constraints.Min.X
 						chosen, changed := a.aspectDropdown.Layout(gtx, a.theme, aspectOptions, a.aspectIndex)
 						if changed {
 							a.aspectIndex = chosen
@@ -138,6 +139,7 @@ func (a *App) layoutAdvanced(gtx layout.Context) layout.Dimensions {
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.X = gtx.Dp(180)
+								gtx.Constraints.Max.X = gtx.Constraints.Min.X
 								chosen, changed := a.contextDropdown.Layout(gtx, a.theme, contextOptions, a.contextIndex)
 								if changed {
 									a.contextIndex = chosen

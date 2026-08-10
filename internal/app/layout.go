@@ -75,6 +75,7 @@ func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(320)
+				gtx.Constraints.Max.X = gtx.Constraints.Min.X
 				return a.layoutModelPicker(gtx)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
