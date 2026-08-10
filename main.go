@@ -4,6 +4,9 @@
 package main
 
 import (
+	"context"
+	"flag"
+	"fmt"
 	"image/color"
 	"log"
 	"os"
@@ -13,9 +16,18 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+
+	"github.com/jonathanhecl/vWriter/internal/ollama"
 )
 
 func main() {
+	debug := flag.Bool("debug", false, "list Ollama models with vision capability and exit")
+	ollamaURL := flag.String("url", ollama.DefaultURL, "Ollama server URL")
+	flag.Parse()
+	if *debug {
+		debugListModels(*ollamaURL)
+		return
+	}
 	go func() {
 		window := new(app.Window)
 		window.Option(app.Title("vWriter"), app.Size(unit.Dp(1100), unit.Dp(720)))
@@ -25,6 +37,36 @@ func main() {
 		os.Exit(0)
 	}()
 	app.Main()
+}
+
+// debugListModels prints the installed Ollama models and their vision
+// capability, then exits. Temporary verification aid until the UI lands.
+func debugListModels(rawURL string) {
+	client, err := ollama.NewClient(rawURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx := context.Background()
+	version, err := client.Version(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Ollama %s at %s\n\n", version, client.BaseURL())
+	models, err := client.Tags(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(models) == 0 {
+		fmt.Println("No models installed. Use `ollama pull <name>` first.")
+		return
+	}
+	for _, model := range models {
+		vision := "no "
+		if info, err := client.Show(ctx, model.Name); err == nil && info.HasVision() {
+			vision = "yes"
+		}
+		fmt.Printf("%-30s %-8s vision: %s\n", model.Name, model.Details.ParameterSize, vision)
+	}
 }
 
 func run(window *app.Window) error {
