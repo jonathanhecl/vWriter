@@ -31,6 +31,14 @@ func (a *App) handleEvents(gtx layout.Context) {
 	if a.filterAudBtn.Clicked(gtx) {
 		a.mediaFilter = "audio"
 	}
+	if a.scrollLeftBtn.Clicked(gtx) && a.mediaList.Position.First > 0 {
+		a.mediaList.Position.First--
+		a.window.Invalidate()
+	}
+	if a.scrollRightBtn.Clicked(gtx) {
+		a.mediaList.Position.First++
+		a.window.Invalidate()
+	}
 	if a.clearMediaBtn.Clicked(gtx) {
 		a.engine.Store.Clear(a.session)
 		a.hasResult = false

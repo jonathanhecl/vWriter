@@ -90,6 +90,8 @@ type App struct {
 	filterImgBtn    widget.Clickable
 	filterVidBtn    widget.Clickable
 	filterAudBtn    widget.Clickable
+	scrollLeftBtn   widget.Clickable
+	scrollRightBtn  widget.Clickable
 	mediaFilter     string // "all", "image", "video", "audio"
 	connectBtn      widget.Clickable
 	refreshBtn      widget.Clickable
