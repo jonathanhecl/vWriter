@@ -7,16 +7,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"image/color"
 	"log"
 	"os"
 
-	"gioui.org/app"
-	"gioui.org/layout"
-	"gioui.org/op"
+	giouiApp "gioui.org/app"
 	"gioui.org/unit"
-	"gioui.org/widget/material"
 
+	uiApp "github.com/jonathanhecl/vWriter/internal/app"
 	"github.com/jonathanhecl/vWriter/internal/ollama"
 )
 
@@ -29,14 +26,14 @@ func main() {
 		return
 	}
 	go func() {
-		window := new(app.Window)
-		window.Option(app.Title("vWriter"), app.Size(unit.Dp(1100), unit.Dp(720)))
-		if err := run(window); err != nil {
+		window := new(giouiApp.Window)
+		window.Option(giouiApp.Title("vWriter"), giouiApp.Size(unit.Dp(1240), unit.Dp(780)))
+		if err := uiApp.Run(window); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
 	}()
-	app.Main()
+	giouiApp.Main()
 }
 
 // debugListModels prints the installed Ollama models and their vision
@@ -66,24 +63,5 @@ func debugListModels(rawURL string) {
 			vision = "yes"
 		}
 		fmt.Printf("%-30s %-8s vision: %s\n", model.Name, model.Details.ParameterSize, vision)
-	}
-}
-
-func run(window *app.Window) error {
-	theme := material.NewTheme()
-	var ops op.Ops
-	for {
-		switch event := window.Event().(type) {
-		case app.DestroyEvent:
-			return event.Err
-		case app.FrameEvent:
-			gtx := app.NewContext(&ops, event)
-			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				label := material.H5(theme, "vWriter — scaffold ready")
-				label.Color = color.NRGBA{R: 200, G: 205, B: 215, A: 255}
-				return label.Layout(gtx)
-			})
-			event.Frame(gtx.Ops)
-		}
 	}
 }
