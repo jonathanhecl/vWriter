@@ -139,13 +139,16 @@ func NarrowRepairMessages(assembled *Assembled, draft string, violations []strin
 	if allowedText == "" {
 		allowedText = "none"
 	}
+	timestampRule := "Target timestamps must use MM:SS.mmm. "
+	if durationSeconds > 0 {
+		timestampRule = fmt.Sprintf("Target timestamps must use MM:SS.mmm and remain within %g seconds. ", durationSeconds)
+	}
 	system := "This is a narrow correction pass, not a new prompt-generation pass. Correct only the exact violations " +
 		"listed below and preserve every other supported fact, reference role, action, dialogue line, shot, and " +
 		"creative choice unchanged. Return the complete corrected prompt with no commentary. The exact allowed " +
 		fmt.Sprintf("numbered media tags are: %s. Do not add any other media tag. Requested music without an ", allowedText) +
-		"uploaded audio asset belongs only in non_diegetic_music and is not audio reference or reuse. Target " +
-		fmt.Sprintf("timestamps must use MM:SS.mmm and remain within %g seconds. Violations: ", durationSeconds) +
-		strings.Join(violations, "; ")
+		"uploaded audio asset belongs only in non_diegetic_music and is not audio reference or reuse. " +
+		timestampRule + "Violations: " + strings.Join(violations, "; ")
 	user := fmt.Sprintf("ORIGINAL REQUEST:\n%s\n\nDRAFT TO CORRECT:\n%s", originalRequest, draft)
 	return []Message{
 		{Role: "system", Content: system},
