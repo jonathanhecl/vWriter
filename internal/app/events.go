@@ -43,6 +43,20 @@ func (a *App) handleEvents(gtx layout.Context) {
 		a.engine.Store.Clear(a.session)
 		a.hasResult = false
 	}
+	if a.savePresetBtn.Clicked(gtx) {
+		a.savingPreset = true
+		a.window.Invalidate()
+	}
+	if a.deletePresetBtn.Clicked(gtx) {
+		a.deleteCurrentPreset()
+	}
+	if a.cancelSaveBtn.Clicked(gtx) {
+		a.savingPreset = false
+		a.window.Invalidate()
+	}
+	if a.confirmSaveBtn.Clicked(gtx) {
+		a.saveCurrentPreset(a.presetNameEditor.Text())
+	}
 	if a.generateBtn.Clicked(gtx) {
 		a.mu.Lock()
 		busy := a.generating

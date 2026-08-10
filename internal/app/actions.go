@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jonathanhecl/vWriter/internal/engine"
 )
@@ -347,3 +348,80 @@ var (
 	contextOptions  = []string{"Auto (16K default)", "Low 8K", "Standard 16K", "Extended 24K"}
 	contextProfiles = []string{"auto", "low", "standard", "extended"}
 )
+
+// saveCurrentPreset saves the current brief, duration, aspect ratio, and system prompt as a preset.
+func (a *App) saveCurrentPreset(name string) {
+	if name == "" {
+		name = "Template " + time.Now().Format("Jan 02 15:04")
+	}
+	sysPrompt := ""
+	if strings.TrimSpace(a.sysEditor.Text()) != "" {
+		sysPrompt = a.sysEditor.Text()
+	}
+	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt)
+	if err != nil {
+		a.mu.Lock()
+		a.toasts = append(a.toasts, toastMsg{text: "Failed to save preset: " + err.Error(), isError: true})
+		a.mu.Unlock()
+		return
+	}
+	a.savingPreset = false
+	a.presetNameEditor.SetText("")
+	presets := a.presetStore.List()
+	for i, preset := range presets {
+		if preset.ID == p.ID {
+			a.presetIndex = i
+			break
+		}
+	}
+	a.mu.Lock()
+	a.toasts = append(a.toasts, toastMsg{text: fmt.Sprintf("Saved template '%s'", p.Name)})
+	a.mu.Unlock()
+	a.window.Invalidate()
+}
+
+// loadPreset loads a preset into the editor fields.
+func (a *App) loadPreset(index int) {
+	presets := a.presetStore.List()
+	if index < 0 || index >= len(presets) {
+		return
+	}
+	p := presets[index]
+	a.presetIndex = index
+	a.briefEditor.SetText(p.Brief)
+	a.cfg.CreativeBrief = p.Brief
+	if p.Duration >= 1 && p.Duration <= 20 {
+		a.duration.Value = float32(p.Duration-1) / 19.0
+		a.cfg.DurationSeconds = float64(p.Duration)
+	}
+	if p.AspectRatio != "" {
+		for i, opt := range aspectOptions {
+			if opt == p.AspectRatio {
+				a.aspectIndex = i
+				a.cfg.AspectRatio = opt
+				break
+			}
+		}
+	}
+	if p.SystemPrompt != "" {
+		a.sysEditor.SetText(p.SystemPrompt)
+		a.cfg.SystemPromptOverride = p.SystemPrompt
+	}
+	a.saveConfig()
+	a.window.Invalidate()
+}
+
+// deleteCurrentPreset deletes the currently selected preset.
+func (a *App) deleteCurrentPreset() {
+	presets := a.presetStore.List()
+	if a.presetIndex < 0 || a.presetIndex >= len(presets) {
+		return
+	}
+	p := presets[a.presetIndex]
+	_ = a.presetStore.Delete(p.ID)
+	a.presetIndex = -1
+	a.mu.Lock()
+	a.toasts = append(a.toasts, toastMsg{text: fmt.Sprintf("Deleted template '%s'", p.Name)})
+	a.mu.Unlock()
+	a.window.Invalidate()
+}

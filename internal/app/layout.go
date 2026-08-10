@@ -43,6 +43,59 @@ func (a *App) layout(gtx layout.Context) {
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutToasts(gtx) }),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutModal(gtx) }),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutSavePresetModal(gtx) }),
+	)
+}
+
+func (a *App) layoutSavePresetModal(gtx layout.Context) layout.Dimensions {
+	if !a.savingPreset {
+		return layout.Dimensions{}
+	}
+	return layout.Stack{}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			fill(gtx, 0, color.NRGBA{R: 0, G: 0, B: 0, A: 0xb0})
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min = image.Pt(gtx.Dp(360), 0)
+				gtx.Constraints.Max.X = gtx.Dp(360)
+				return card(gtx, 18, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(a.theme, 16, "Save Creative Template")
+							l.Color = colorText
+							return l.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Bottom: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								l := material.Label(a.theme, 12, "Enter a name for this prompt template:")
+								l.Color = colorTextDim
+								return l.Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.singlelineBox(gtx, &a.presetNameEditor, "Template name (e.g. Action Motion Reference)")
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+									layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+											return a.smallButton(gtx, &a.cancelSaveBtn, "Cancel")
+										})
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.smallButton(gtx, &a.confirmSaveBtn, "Save")
+									}),
+								)
+							})
+						}),
+					)
+				})
+			})
+		}),
 	)
 }
 

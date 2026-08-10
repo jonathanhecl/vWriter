@@ -7,6 +7,7 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
@@ -114,15 +115,23 @@ func (a *App) layoutTargetSection(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-// layoutBrief renders the creative brief editor with a character counter.
+// layoutBrief renders the creative brief editor with a template preset bar and character counter.
 func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
+	presets := a.presetStore.List()
+	presetNames := make([]string, len(presets))
+	for i, p := range presets {
+		presetNames[i] = p.Name
+	}
+
 	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
 		count := len(a.briefEditor.Text())
 		countColor := colorTextDim
 		if count > 2000 {
 			countColor = colorDanger
 		}
+
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			// Header Top Row
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -138,8 +147,38 @@ func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 					}),
 				)
 			}),
+			// Presets / Templates Row
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 8, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								l := material.Label(a.theme, 12, "Preset:")
+								l.Color = colorTextDim
+								return l.Layout(gtx)
+							})
+						}),
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							chosen, changed := a.presetDropdown.Layout(gtx, a.theme, presetNames, a.presetIndex)
+							if changed {
+								a.loadPreset(chosen)
+							}
+							return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(32))}
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: 6, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.smallButton(gtx, &a.savePresetBtn, "Save preset")
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.iconButton(gtx, &a.deletePresetBtn, "🗑", a.presetIndex >= 0)
+						}),
+					)
+				})
+			}),
+			// Editor Box with Counter at Bottom Right (layout.SE)
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Stack{}.Layout(gtx,
 						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.Y = gtx.Dp(112)
@@ -351,4 +390,25 @@ func (a *App) multilineBox(gtx layout.Context, editor *widget.Editor, hint strin
 
 func formatK(value int) string {
 	return fmt.Sprintf("%d,%03d", value/1000, value%1000)
+}
+
+// singlelineBox renders a single line text input box.
+func (a *App) singlelineBox(gtx layout.Context, editor *widget.Editor, hint string) layout.Dimensions {
+	editor.SingleLine = true
+	padding := gtx.Dp(8)
+	return layout.Background{}.Layout(gtx,
+		func(gtx layout.Context) layout.Dimensions {
+			bordered(gtx, 6, colorSurface, colorBorder)
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(padding), Bottom: unit.Dp(padding), Left: unit.Dp(padding), Right: unit.Dp(padding)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				ed := material.Editor(a.theme, editor, hint)
+				ed.Color = colorText
+				ed.HintColor = colorTextDim
+				ed.TextSize = 13
+				return ed.Layout(gtx)
+			})
+		},
+	)
 }

@@ -104,6 +104,16 @@ type App struct {
 	modalFrameIndex int
 	toastClicks     []toastClick
 
+	presetStore      *config.PresetStore
+	presetDropdown   dropdown
+	presetIndex      int
+	savePresetBtn    widget.Clickable
+	deletePresetBtn  widget.Clickable
+	savingPreset     bool
+	presetNameEditor widget.Editor
+	confirmSaveBtn   widget.Clickable
+	cancelSaveBtn    widget.Clickable
+
 	toasts      []toastMsg
 	modal       *media.Asset // non-nil while a preview modal is open
 	originalOut string       // pre-refine output for restore
@@ -116,14 +126,17 @@ func Run(window *app.Window) error {
 	if err != nil {
 		cfg = config.Default()
 	}
+	presetStore, _ := config.NewPresetStore(config.DefaultPresetsPath())
 	a := &App{
-		window:   window,
-		theme:    newTheme(),
-		explorer: explorer.NewExplorer(window),
-		engine:   engine.NewEngine(media.NewStore("")),
-		cfg:      cfg,
-		cfgPath:  config.DefaultPath(),
-		images:   map[string]image.Image{},
+		window:      window,
+		theme:       newTheme(),
+		explorer:    explorer.NewExplorer(window),
+		engine:      engine.NewEngine(media.NewStore("")),
+		cfg:         cfg,
+		cfgPath:     config.DefaultPath(),
+		images:      map[string]image.Image{},
+		presetStore: presetStore,
+		presetIndex: -1,
 	}
 	a.session = newSessionID()
 	a.mediaList.Axis = layout.Vertical
