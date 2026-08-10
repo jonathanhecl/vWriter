@@ -97,11 +97,13 @@ type App struct {
 	mediaDrag          gesture.Drag
 	dividerDrag        gesture.Drag
 	mediaFilter        string // "all", "image", "video", "audio"
-	connectBtn      widget.Clickable
-	refreshBtn      widget.Clickable
-	unloadBtn       widget.Clickable
-	mediaList       layout.List
-	outputList      layout.List
+	dragStartX         float32
+	connectBtn         widget.Clickable
+	refreshBtn         widget.Clickable
+	unloadBtn          widget.Clickable
+	mediaList          layout.List
+	filterList         layout.List
+	outputList         layout.List
 	leftList        widget.List
 	assetWidgetSet  map[string]*assetWidgets
 	modalStateSet   *modalState

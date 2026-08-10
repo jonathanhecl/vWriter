@@ -7,6 +7,7 @@ import (
 	_ "image/png"
 	"os"
 
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
@@ -97,40 +98,43 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 					return l.Layout(gtx)
 				})
 			}),
-			// Filter Pills Row with Scroll Arrows
+			// Filter Pills Row (Single line horizontal list)
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.filterPill(gtx, &a.filterAllBtn, fmt.Sprintf("All %d/12", len(assets)), filter == "all")
-							})
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.filterPill(gtx, &a.filterImgBtn, fmt.Sprintf("🖼 Images %d/9", imgCount), filter == "image")
-							})
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.filterPill(gtx, &a.filterVidBtn, fmt.Sprintf("🎬 Video %d/3", vidCount), filter == "video")
-							})
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.filterPill(gtx, &a.filterAudBtn, fmt.Sprintf("🎵 Audio %d/3", audCount), filter == "audio")
-						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, 0)}
+							a.filterList.Axis = layout.Horizontal
+							pillsGtx := gtx
+							pillsGtx.Constraints.Min.Y = gtx.Dp(28)
+							pillsGtx.Constraints.Max.Y = pillsGtx.Constraints.Min.Y
+
+							return a.filterList.Layout(pillsGtx, 4, func(gtx layout.Context, index int) layout.Dimensions {
+								return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									switch index {
+									case 0:
+										return a.filterPill(gtx, &a.filterAllBtn, fmt.Sprintf("All %d/12", len(assets)), filter == "all")
+									case 1:
+										return a.filterPill(gtx, &a.filterImgBtn, fmt.Sprintf("🖼 Images %d/9", imgCount), filter == "image")
+									case 2:
+										return a.filterPill(gtx, &a.filterVidBtn, fmt.Sprintf("🎬 Video %d/3", vidCount), filter == "video")
+									case 3:
+										return a.filterPill(gtx, &a.filterAudBtn, fmt.Sprintf("🎵 Audio %d/3", audCount), filter == "audio")
+									}
+									return layout.Dimensions{}
+								})
+							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return a.iconButton(gtx, &a.scrollLeftBtn, "‹", a.mediaList.Position.First > 0)
-								}),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return a.iconButton(gtx, &a.scrollRightBtn, "›", true)
-								}),
-							)
+							return layout.Inset{Left: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.iconButton(gtx, &a.scrollLeftBtn, "‹", a.mediaList.Position.First > 0)
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.iconButton(gtx, &a.scrollRightBtn, "›", true)
+									}),
+								)
+							})
 						}),
 					)
 				})
@@ -164,6 +168,41 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 				cardHeight := gtx.Dp(135)
 				hGtx.Constraints.Min.Y = cardHeight
 				hGtx.Constraints.Max.Y = cardHeight
+
+				for {
+					event, ok := gtx.Event(pointer.Filter{
+						Target: &a.mediaList,
+						Kinds:  pointer.Scroll | pointer.Press | pointer.Drag,
+					})
+					if !ok {
+						break
+					}
+					if ev, ok := event.(pointer.Event); ok {
+						switch ev.Kind {
+						case pointer.Scroll:
+							if (ev.Scroll.Y > 0 || ev.Scroll.X > 0) && a.mediaList.Position.First < totalItems-1 {
+								a.mediaList.Position.First++
+								a.window.Invalidate()
+							} else if (ev.Scroll.Y < 0 || ev.Scroll.X < 0) && a.mediaList.Position.First > 0 {
+								a.mediaList.Position.First--
+								a.window.Invalidate()
+							}
+						case pointer.Press:
+							a.dragStartX = ev.Position.X
+						case pointer.Drag:
+							dx := ev.Position.X - a.dragStartX
+							if dx > 35 && a.mediaList.Position.First > 0 {
+								a.mediaList.Position.First--
+								a.dragStartX = ev.Position.X
+								a.window.Invalidate()
+							} else if dx < -35 && a.mediaList.Position.First < totalItems-1 {
+								a.mediaList.Position.First++
+								a.dragStartX = ev.Position.X
+								a.window.Invalidate()
+							}
+						}
+					}
+				}
 
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -202,13 +241,23 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 								thumbLeft = trackWidth - thumbWidth
 							}
 
-							if a.scrollbarClickable.Clicked(gtx) {
-								if a.mediaList.Position.First > 0 {
-									a.mediaList.Position.First--
-								} else {
-									a.mediaList.Position.First++
+							for {
+								event, ok := gtx.Event(pointer.Filter{
+									Target: &a.scrollbarClickable,
+									Kinds:  pointer.Press,
+								})
+								if !ok {
+									break
 								}
-								a.window.Invalidate()
+								if ev, ok := event.(pointer.Event); ok {
+									if ev.Position.X < float32(thumbLeft) && a.mediaList.Position.First > 0 {
+										a.mediaList.Position.First--
+										a.window.Invalidate()
+									} else if ev.Position.X > float32(thumbLeft+thumbWidth) && a.mediaList.Position.First < totalItems-1 {
+										a.mediaList.Position.First++
+										a.window.Invalidate()
+									}
+								}
 							}
 
 							return a.scrollbarClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
