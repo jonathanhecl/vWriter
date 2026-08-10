@@ -11,15 +11,23 @@ import (
 	"time"
 )
 
+// PresetAsset represents a reference asset stored within a preset.
+type PresetAsset struct {
+	Type     string `json:"type"`     // "image", "video", "audio"
+	Path     string `json:"path"`     // file path
+	Filename string `json:"filename"`
+}
+
 // Preset represents a saved creative prompt template.
 type Preset struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Brief        string `json:"brief"`
-	Duration     int    `json:"duration"`
-	AspectRatio  string `json:"aspect_ratio"`
-	SystemPrompt string `json:"system_prompt,omitempty"`
-	CreatedAt    string `json:"created_at"`
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	Brief        string        `json:"brief"`
+	Duration     int           `json:"duration"`
+	AspectRatio  string        `json:"aspect_ratio"`
+	SystemPrompt string        `json:"system_prompt,omitempty"`
+	Assets       []PresetAsset `json:"assets,omitempty"`
+	CreatedAt    string        `json:"created_at"`
 }
 
 // PresetStore manages saving and loading creative templates in presets.json.
@@ -94,7 +102,7 @@ func (s *PresetStore) List() []*Preset {
 }
 
 // AddOrUpdate saves a preset. If a preset with the same Name exists, it updates it.
-func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio, systemPrompt string) (*Preset, error) {
+func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio, systemPrompt string, assets []PresetAsset) (*Preset, error) {
 	if name == "" {
 		name = "Untitled Template"
 	}
@@ -105,6 +113,7 @@ func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio,
 		Duration:     duration,
 		AspectRatio:  aspectRatio,
 		SystemPrompt: systemPrompt,
+		Assets:       assets,
 		CreatedAt:    time.Now().Format(time.RFC3339),
 	}
 

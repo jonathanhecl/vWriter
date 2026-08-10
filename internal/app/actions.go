@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jonathanhecl/vWriter/internal/config"
 	"github.com/jonathanhecl/vWriter/internal/engine"
+	"github.com/jonathanhecl/vWriter/internal/media"
 )
 
 // durationSeconds maps the 0..1 slider to 1..20 seconds.
@@ -349,7 +351,7 @@ var (
 	contextProfiles = []string{"auto", "low", "standard", "extended"}
 )
 
-// saveCurrentPreset saves the current brief, duration, aspect ratio, and system prompt as a preset.
+// saveCurrentPreset saves the current brief, duration, aspect ratio, system prompt, and media assets as a preset.
 func (a *App) saveCurrentPreset(name string) {
 	if name == "" {
 		name = "Template " + time.Now().Format("Jan 02 15:04")
@@ -358,7 +360,23 @@ func (a *App) saveCurrentPreset(name string) {
 	if strings.TrimSpace(a.sysEditor.Text()) != "" {
 		sysPrompt = a.sysEditor.Text()
 	}
-	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt)
+
+	var presetAssets []config.PresetAsset
+	for _, asset := range a.engine.Store.List(a.session) {
+		typeStr := "image"
+		if asset.Type == media.Video {
+			typeStr = "video"
+		} else if asset.Type == media.Audio {
+			typeStr = "audio"
+		}
+		presetAssets = append(presetAssets, config.PresetAsset{
+			Type:     typeStr,
+			Path:     asset.OriginalPath,
+			Filename: asset.Filename,
+		})
+	}
+
+	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt, presetAssets)
 	if err != nil {
 		a.mu.Lock()
 		a.toasts = append(a.toasts, toastMsg{text: "Failed to save preset: " + err.Error(), isError: true})
@@ -380,7 +398,7 @@ func (a *App) saveCurrentPreset(name string) {
 	a.window.Invalidate()
 }
 
-// loadPreset loads a preset into the editor fields.
+// loadPreset loads a preset into the editor fields and restores saved media assets.
 func (a *App) loadPreset(index int) {
 	presets := a.presetStore.List()
 	if index < 0 || index >= len(presets) {
@@ -406,7 +424,23 @@ func (a *App) loadPreset(index int) {
 	if p.SystemPrompt != "" {
 		a.sysEditor.SetText(p.SystemPrompt)
 		a.cfg.SystemPromptOverride = p.SystemPrompt
+	} else {
+		a.sysEditor.SetText("")
+		a.cfg.SystemPromptOverride = ""
 	}
+
+	// Restore media assets if saved
+	if len(p.Assets) > 0 {
+		a.engine.Store.Clear(a.session)
+		for _, asset := range p.Assets {
+			if asset.Path != "" {
+				if _, err := os.Stat(asset.Path); err == nil {
+					_, _ = a.engine.Store.Add(a.session, asset.Path)
+				}
+			}
+		}
+	}
+
 	a.saveConfig()
 	a.window.Invalidate()
 }

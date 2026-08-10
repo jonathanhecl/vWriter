@@ -7,6 +7,8 @@ import (
 	_ "image/png"
 	"os"
 
+	"gioui.org/gesture"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
@@ -64,32 +66,30 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 
 	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			// Header Top Row with Clear pinned to Top-Right (layout.NE)
+			// Header Top Row (Line 1: MEDIA label left, Clear button right)
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Stack{}.Layout(gtx,
-					layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return sectionLabel(gtx, a.theme, "MEDIA")
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Top: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									l := material.Label(a.theme, 16, "Images, video & audio")
-									l.Color = colorText
-									return l.Layout(gtx)
-								})
-							}),
-						)
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return sectionLabel(gtx, a.theme, "MEDIA")
 					}),
-					layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, 0)}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if len(assets) == 0 {
 							return layout.Dimensions{}
 						}
-						return layout.NE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.smallButton(gtx, &a.clearMediaBtn, "Clear")
-						})
+						return a.smallButton(gtx, &a.clearMediaBtn, "Clear")
 					}),
 				)
+			}),
+			// Main Title (Line 2: Images, video & audio)
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(a.theme, 16, "Images, video & audio")
+					l.Color = colorText
+					return l.Layout(gtx)
+				})
 			}),
 			// Subtitle
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -121,7 +121,9 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.filterPill(gtx, &a.filterAudBtn, fmt.Sprintf("🎵 Audio %d/3", audCount), filter == "audio")
 						}),
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, 0)}
+						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -135,7 +137,7 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 					)
 				})
 			}),
-			// Asset Grid / Horizontal Card Row with Visible Scrollbar
+			// Asset Grid / Horizontal Card Row with Interactive Scrollbar
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				var filteredAssets []*media.Asset
 				for _, asset := range assets {
@@ -160,6 +162,43 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 				totalItems := len(filteredAssets) + 1
 				a.mediaList.Axis = layout.Horizontal
 
+				// Process Drag gestures on horizontal gallery
+				for {
+					event, ok := a.mediaDrag.Update(gtx.Metric, gtx.Source, gesture.Horizontal)
+					if !ok {
+						break
+					}
+					if event.Kind == gesture.DragPosition {
+						if event.Delta < -8 && a.mediaList.Position.First < totalItems-1 {
+							a.mediaList.Position.First++
+							a.window.Invalidate()
+						} else if event.Delta > 8 && a.mediaList.Position.First > 0 {
+							a.mediaList.Position.First--
+							a.window.Invalidate()
+						}
+					}
+				}
+
+				// Process Mouse Wheel Pointer events on horizontal gallery
+				for {
+					event, ok := gtx.Event(pointer.Filter{
+						Target: &a.mediaList,
+						Kinds:  pointer.Scroll,
+					})
+					if !ok {
+						break
+					}
+					if ev, ok := event.(pointer.Event); ok {
+						if (ev.Scroll.Y > 0 || ev.Scroll.X > 0) && a.mediaList.Position.First < totalItems-1 {
+							a.mediaList.Position.First++
+							a.window.Invalidate()
+						} else if (ev.Scroll.Y < 0 || ev.Scroll.X < 0) && a.mediaList.Position.First > 0 {
+							a.mediaList.Position.First--
+							a.window.Invalidate()
+						}
+					}
+				}
+
 				hGtx := gtx
 				cardHeight := gtx.Dp(135)
 				hGtx.Constraints.Min.Y = cardHeight
@@ -167,19 +206,21 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.mediaList.Layout(hGtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
-							if index < len(filteredAssets) {
-								asset := filteredAssets[index]
-								return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return a.layoutAssetCard(gtx, asset, index, len(filteredAssets))
-								})
-							}
-							return a.layoutAddMediaCard(gtx)
+						return a.mediaDrag.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.mediaList.Layout(hGtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
+								if index < len(filteredAssets) {
+									asset := filteredAssets[index]
+									return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										return a.layoutAssetCard(gtx, asset, index, len(filteredAssets))
+									})
+								}
+								return a.layoutAddMediaCard(gtx)
+							})
 						})
 					}),
-					// Visible Horizontal Scrollbar Indicator
+					// Interactive Horizontal Scrollbar Track & Thumb
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							total := float32(totalItems)
 							first := float32(a.mediaList.Position.First)
 							count := float32(a.mediaList.Position.Count)
@@ -202,21 +243,38 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 								thumbLeft = trackWidth - thumbWidth
 							}
 
-							// Draw track background
-							bgGtx := gtx
-							bgGtx.Constraints.Min = image.Pt(trackWidth, gtx.Dp(4))
-							bgGtx.Constraints.Max = bgGtx.Constraints.Min
-							fill(bgGtx, 2, colorSurface)
+							for {
+								click, ok := a.scrollbarClickable.Update(gtx)
+								if !ok {
+									break
+								}
+								if click.Kind == widget.ClickKindPress {
+									if click.Position.X < float32(thumbLeft) && a.mediaList.Position.First > 0 {
+										a.mediaList.Position.First--
+									} else if click.Position.X > float32(thumbLeft+thumbWidth) && a.mediaList.Position.First < totalItems-1 {
+										a.mediaList.Position.First++
+									}
+									a.window.Invalidate()
+								}
+							}
 
-							// Draw scrollbar thumb
-							thumbOff := op.Offset(image.Pt(thumbLeft, 0)).Push(gtx.Ops)
-							thumbGtx := gtx
-							thumbGtx.Constraints.Min = image.Pt(thumbWidth, gtx.Dp(4))
-							thumbGtx.Constraints.Max = thumbGtx.Constraints.Min
-							fill(thumbGtx, 2, colorTextDim)
-							thumbOff.Pop()
+							return a.scrollbarClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								// Draw track background
+								bgGtx := gtx
+								bgGtx.Constraints.Min = image.Pt(trackWidth, gtx.Dp(8))
+								bgGtx.Constraints.Max = bgGtx.Constraints.Min
+								fill(bgGtx, 4, colorCard)
 
-							return layout.Dimensions{Size: bgGtx.Constraints.Min}
+								// Draw scrollbar thumb
+								thumbOff := op.Offset(image.Pt(thumbLeft, 0)).Push(gtx.Ops)
+								thumbGtx := gtx
+								thumbGtx.Constraints.Min = image.Pt(thumbWidth, gtx.Dp(8))
+								thumbGtx.Constraints.Max = thumbGtx.Constraints.Min
+								fill(thumbGtx, 4, colorAccent)
+								thumbOff.Pop()
+
+								return layout.Dimensions{Size: bgGtx.Constraints.Min}
+							})
 						})
 					}),
 				)

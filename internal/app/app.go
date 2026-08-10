@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"gioui.org/app"
+	"gioui.org/gesture"
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -90,9 +91,11 @@ type App struct {
 	filterImgBtn    widget.Clickable
 	filterVidBtn    widget.Clickable
 	filterAudBtn    widget.Clickable
-	scrollLeftBtn   widget.Clickable
-	scrollRightBtn  widget.Clickable
-	mediaFilter     string // "all", "image", "video", "audio"
+	scrollLeftBtn      widget.Clickable
+	scrollRightBtn     widget.Clickable
+	scrollbarClickable widget.Clickable
+	mediaDrag          gesture.Drag
+	mediaFilter        string // "all", "image", "video", "audio"
 	connectBtn      widget.Clickable
 	refreshBtn      widget.Clickable
 	unloadBtn       widget.Clickable

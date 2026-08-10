@@ -14,23 +14,25 @@ import (
 	"github.com/jonathanhecl/vWriter/internal/prompt"
 )
 
-// layoutInput renders the left column: media, duration, aspect ratio, brief,
-// advanced runtime, and the system prompt.
+// layoutInput renders the left column: presets, media, duration, aspect ratio, brief,
+// advanced runtime, and system prompt.
 func (a *App) layoutInput(gtx layout.Context) layout.Dimensions {
 	return layout.Inset{Top: 12, Bottom: 8, Left: 18, Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return a.leftList.Layout(gtx, 12, func(gtx layout.Context, index int) layout.Dimensions {
 			switch index {
 			case 0:
-				return a.layoutMediaSection(gtx)
+				return a.layoutPresetsSection(gtx)
 			case 1:
-				return a.layoutTargetSection(gtx)
+				return a.layoutMediaSection(gtx)
 			case 2:
-				return a.layoutBrief(gtx)
+				return a.layoutTargetSection(gtx)
 			case 3:
-				return a.layoutAdvanced(gtx)
+				return a.layoutBrief(gtx)
 			case 4:
-				return a.layoutSystemPrompt(gtx)
+				return a.layoutAdvanced(gtx)
 			case 5:
+				return a.layoutSystemPrompt(gtx)
+			case 6:
 				return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Dimensions{}
 				})
@@ -115,14 +117,60 @@ func (a *App) layoutTargetSection(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-// layoutBrief renders the creative brief editor with a template preset bar and character counter.
-func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
+// layoutPresetsSection renders the top Presets & Templates bar.
+func (a *App) layoutPresetsSection(gtx layout.Context) layout.Dimensions {
 	presets := a.presetStore.List()
 	presetNames := make([]string, len(presets))
 	for i, p := range presets {
 		presetNames[i] = p.Name
 	}
 
+	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return sectionLabel(gtx, a.theme, "PRESETS & TEMPLATES")
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if a.presetIndex >= 0 && a.presetIndex < len(presets) {
+							assetCount := len(presets[a.presetIndex].Assets)
+							l := material.Label(a.theme, 11, fmt.Sprintf("%d assets saved", assetCount))
+							l.Color = colorTextDim
+							return l.Layout(gtx)
+						}
+						return layout.Dimensions{}
+					}),
+				)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							chosen, changed := a.presetDropdown.Layout(gtx, a.theme, presetNames, a.presetIndex)
+							if changed {
+								a.loadPreset(chosen)
+							}
+							return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(34))}
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: 8, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.smallButton(gtx, &a.savePresetBtn, "Save preset")
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.iconButton(gtx, &a.deletePresetBtn, "🗑", a.presetIndex >= 0)
+						}),
+					)
+				})
+			}),
+		)
+	})
+}
+
+// layoutBrief renders the creative brief editor with a character counter.
+func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
 		count := len(a.briefEditor.Text())
 		countColor := colorTextDim
@@ -147,38 +195,9 @@ func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 					}),
 				)
 			}),
-			// Presets / Templates Row
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 8, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								l := material.Label(a.theme, 12, "Preset:")
-								l.Color = colorTextDim
-								return l.Layout(gtx)
-							})
-						}),
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							chosen, changed := a.presetDropdown.Layout(gtx, a.theme, presetNames, a.presetIndex)
-							if changed {
-								a.loadPreset(chosen)
-							}
-							return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(32))}
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Left: 6, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.smallButton(gtx, &a.savePresetBtn, "Save preset")
-							})
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.iconButton(gtx, &a.deletePresetBtn, "🗑", a.presetIndex >= 0)
-						}),
-					)
-				})
-			}),
 			// Editor Box with Counter at Bottom Right (layout.SE)
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Stack{}.Layout(gtx,
 						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.Y = gtx.Dp(112)
