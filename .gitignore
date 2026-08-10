@@ -27,6 +27,10 @@ go.work.sum
 # env file
 .env
 
+# vWriter runtime files (created next to the executable)
+config.json
+generations.jsonl
+
 # Editor/IDE
 # .idea/
 # .vscode/
