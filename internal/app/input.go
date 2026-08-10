@@ -110,7 +110,8 @@ func (a *App) layoutBrief(gtx layout.Context) layout.Dimensions {
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.Y = gtx.Dp(96)
+					gtx.Constraints.Min.Y = gtx.Dp(112)
+					gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
 					return a.multilineBox(gtx, &a.briefEditor,
 						"Describe the video and the role of each reference.")
 				})

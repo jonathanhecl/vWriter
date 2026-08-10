@@ -3,6 +3,8 @@
 package app
 
 import (
+	"sync"
+	"time"
 	"unsafe"
 
 	gioapp "gioui.org/app"
@@ -14,6 +16,7 @@ const (
 	swpNoSize               = 0x0001
 	swpNoZOrder             = 0x0004
 	swpNoActivate           = 0x0010
+	swpAsyncWindowPos       = 0x4000
 )
 
 type winRect struct {
@@ -33,21 +36,27 @@ var (
 	procMonitorForWnd  = user32.NewProc("MonitorFromWindow")
 	procGetMonitorInfo = user32.NewProc("GetMonitorInfoW")
 	procSetWindowPos   = user32.NewProc("SetWindowPos")
-	windowCentered     bool
+	windowCenterOnce   sync.Once
 )
 
 // centerWindowOnFirstView centers only the initial native Windows window.
 // Gio intentionally leaves placement to the OS, so this completes the desktop
 // app behaviour without affecting macOS or Linux window managers.
 func centerWindowOnFirstView(_ *gioapp.Window, event any) {
-	if windowCentered {
-		return
-	}
 	view, ok := event.(gioapp.Win32ViewEvent)
 	if !ok || view.HWND == 0 {
 		return
 	}
-	hwnd := uintptr(view.HWND)
+	windowCenterOnce.Do(func() {
+		// Gio delivers this event while the native window thread is waiting for
+		// the application event loop. Deferring the Win32 calls keeps that loop
+		// responsive instead of synchronously re-entering the window procedure.
+		go centerWindowsWindow(uintptr(view.HWND))
+	})
+}
+
+func centerWindowsWindow(hwnd uintptr) {
+	time.Sleep(75 * time.Millisecond)
 	var windowRect winRect
 	if ret, _, _ := procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&windowRect))); ret == 0 {
 		return
@@ -64,6 +73,6 @@ func centerWindowOnFirstView(_ *gioapp.Window, event any) {
 	height := windowRect.Bottom - windowRect.Top
 	x := info.Work.Left + (info.Work.Right-info.Work.Left-width)/2
 	y := info.Work.Top + (info.Work.Bottom-info.Work.Top-height)/2
-	procSetWindowPos.Call(hwnd, 0, uintptr(x), uintptr(y), 0, 0, swpNoSize|swpNoZOrder|swpNoActivate)
-	windowCentered = true
+	procSetWindowPos.Call(hwnd, 0, uintptr(x), uintptr(y), 0, 0,
+		swpNoSize|swpNoZOrder|swpNoActivate|swpAsyncWindowPos)
 }
