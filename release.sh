@@ -84,7 +84,7 @@ echo ""
 
 # 4. Clean & Setup Output Directories
 BUILD_DIR="dist/release_tmp"
-DIST_DIR="dist"
+DIST_DIR="dist/releases"
 mkdir -p "$BUILD_DIR"
 mkdir -p "$DIST_DIR"
 
@@ -94,7 +94,7 @@ echo "================================================================="
 
 # Gio requires cgo + native SDK: only the host platform can be compiled here.
 # Run this script on each OS to produce its binary; drop the resulting zip
-# into dist/ (or build it with build_linux.sh / build_macos.sh / build.ps1).
+# into dist/releases/ (or build it with build_linux.sh / build_macos.sh).
 case "$(uname -s)" in
     Linux*)                        NATIVE_OS="linux" ;;
     Darwin*)                       NATIVE_OS="darwin" ;;
@@ -182,8 +182,8 @@ echo "================================================================="
 echo "[3/4] Release Verification"
 echo "================================================================="
 
-# Gather every vWriter_<version>_*.zip present in dist/ (native just created,
-# other platforms from their own build scripts run on their host OS).
+# Gather every vWriter_<version>_*.zip present in dist/releases/ (native just
+# created, other platforms from their own build scripts run on their host OS).
 MISSING=0
 ARTIFACTS=()
 for zip in "$DIST_DIR"/vWriter_"${VERSION}"_*.zip; do
