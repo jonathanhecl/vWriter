@@ -28,7 +28,7 @@ func main() {
 	}
 	go func() {
 		window := new(giouiApp.Window)
-		window.Option(giouiApp.Title("vWriter"), giouiApp.Size(unit.Dp(1240), unit.Dp(780)))
+		window.Option(giouiApp.Title("vWriter"), giouiApp.Size(unit.Dp(1240), unit.Dp(800)), giouiApp.MinSize(unit.Dp(1000), unit.Dp(800)))
 		if err := uiApp.Run(window); err != nil {
 			log.Fatal(err)
 		}

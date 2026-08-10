@@ -23,6 +23,8 @@ type Config struct {
 	CreativeBrief        string  `json:"creative_brief"`
 	SystemPromptOverride string  `json:"system_prompt_override"` // empty means default
 	LeftPanelWidth       int     `json:"left_panel_width,omitempty"`
+	WindowWidth          int     `json:"window_width,omitempty"`
+	WindowHeight         int     `json:"window_height,omitempty"`
 }
 
 // Default returns the out-of-the-box settings.
@@ -33,6 +35,8 @@ func Default() *Config {
 		DurationSeconds: 10,
 		AspectRatio:     "16:9",
 		LeftPanelWidth:  460,
+		WindowWidth:     1240,
+		WindowHeight:    800,
 	}
 }
 
@@ -58,6 +62,12 @@ func Load(path string) (*Config, error) {
 	config := Default()
 	if err := json.Unmarshal(raw, config); err != nil {
 		return nil, err
+	}
+	if config.WindowWidth < 1000 {
+		config.WindowWidth = 1240
+	}
+	if config.WindowHeight < 800 {
+		config.WindowHeight = 800
 	}
 	return config, nil
 }

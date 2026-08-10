@@ -14,6 +14,7 @@ import (
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/explorer"
@@ -137,15 +138,19 @@ func Run(window *app.Window) error {
 	if err != nil {
 		cfg = config.Default()
 	}
+	window.Option(
+		app.Size(unit.Dp(cfg.WindowWidth), unit.Dp(cfg.WindowHeight)),
+		app.MinSize(unit.Dp(1000), unit.Dp(800)),
+	)
 	presetStore, _ := config.NewPresetStore(config.DefaultPresetsPath())
 	a := &App{
-		window:      window,
-		theme:       newTheme(),
-		explorer:    explorer.NewExplorer(window),
-		engine:      engine.NewEngine(media.NewStore("")),
-		cfg:         cfg,
-		cfgPath:     config.DefaultPath(),
-		images:      map[string]image.Image{},
+		window:        window,
+		theme:         newTheme(),
+		explorer:      explorer.NewExplorer(window),
+		engine:        engine.NewEngine(media.NewStore("")),
+		cfg:           cfg,
+		cfgPath:       config.DefaultPath(),
+		images:        map[string]image.Image{},
 		presetStore:   presetStore,
 		presetIndex:   -1,
 		highlightMode: true,
@@ -208,6 +213,14 @@ func Run(window *app.Window) error {
 
 // frame applies pending async results, handles widget events, and lays out.
 func (a *App) frame(gtx layout.Context) {
+	wDp := int(gtx.Metric.PxToDp(gtx.Constraints.Max.X))
+	hDp := int(gtx.Metric.PxToDp(gtx.Constraints.Max.Y))
+	if wDp >= 1000 && hDp >= 800 && (a.cfg.WindowWidth != wDp || a.cfg.WindowHeight != hDp) {
+		a.cfg.WindowWidth = wDp
+		a.cfg.WindowHeight = hDp
+		a.saveConfig()
+	}
+
 	a.applyAsync()
 	a.handleEvents(gtx)
 	a.layout(gtx)
