@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jonathanhecl/vWriter/internal/engine"
@@ -96,18 +98,29 @@ func (a *App) selectedModel() string {
 // addMedia opens the native file picker and registers the chosen files.
 func (a *App) addMedia() {
 	go func() {
-		files, err := a.explorer.ChooseFiles(
+		exts := []string{
 			".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff",
 			".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v",
 			".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac", ".opus",
-		)
-		if err != nil {
-			return // user cancelled the dialog
+		}
+		files, err := a.explorer.ChooseFiles(exts...)
+		if err != nil || len(files) == 0 {
+			// Fallback for single file selection if ChooseFiles returns 0 files
+			single, singleErr := a.explorer.ChooseFile(exts...)
+			if singleErr == nil && single != nil {
+				files = []io.ReadCloser{single}
+			}
+		}
+		if len(files) == 0 {
+			return
 		}
 		for _, file := range files {
 			path := filePath(file)
 			file.Close()
 			if path == "" {
+				a.mu.Lock()
+				a.toasts = append(a.toasts, toastMsg{text: "Could not resolve file path.", isError: true})
+				a.mu.Unlock()
 				continue
 			}
 			if _, err := a.engine.Store.Add(a.session, path); err != nil {
@@ -122,20 +135,57 @@ func (a *App) addMedia() {
 
 // filePath extracts a local filesystem path from a picked file.
 func filePath(file io.ReadCloser) string {
-	named, ok := file.(interface{ URI() string })
-	if !ok {
+	type urier interface{ URI() string }
+	type namer interface{ Name() string }
+	type pather interface{ Path() string }
+
+	var raw string
+	if f, ok := file.(*os.File); ok {
+		raw = f.Name()
+	} else if u, ok := file.(urier); ok {
+		raw = u.URI()
+	} else if p, ok := file.(pather); ok {
+		raw = p.Path()
+	} else if n, ok := file.(namer); ok {
+		raw = n.Name()
+	} else if s, ok := file.(fmt.Stringer); ok {
+		raw = s.String()
+	} else {
 		return ""
 	}
-	parsed, err := url.Parse(named.URI())
-	if err != nil || parsed.Scheme != "file" {
+
+	if raw == "" {
 		return ""
 	}
-	path := parsed.Path
-	// Windows file URIs look like /F:/dir/file; strip the leading slash.
-	if len(path) >= 3 && path[0] == '/' && path[2] == ':' {
-		path = path[1:]
+
+	// Handle file:// prefix
+	if strings.HasPrefix(raw, "file://") || strings.HasPrefix(raw, "file:") {
+		parsed, err := url.Parse(raw)
+		if err == nil && (parsed.Scheme == "file" || parsed.Scheme == "") {
+			raw = parsed.Path
+		} else {
+			raw = strings.TrimPrefix(strings.TrimPrefix(raw, "file://"), "file:")
+		}
 	}
-	return path
+
+	// Unescape URL encoded characters (e.g. %20 -> space)
+	if unescaped, err := url.PathUnescape(raw); err == nil {
+		raw = unescaped
+	}
+
+	// On Windows, if path is /C:/dir/file.jpg or /F:/dir/file.jpg, strip leading /
+	if len(raw) >= 3 && raw[0] == '/' && raw[2] == ':' {
+		raw = raw[1:]
+	}
+
+	cleaned := filepath.Clean(raw)
+
+	// Check if file exists on disk
+	if _, err := os.Stat(cleaned); err == nil {
+		return cleaned
+	}
+
+	return raw
 }
 
 // generate launches a generation in the background.
