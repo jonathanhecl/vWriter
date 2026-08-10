@@ -89,32 +89,57 @@ mkdir -p "$BUILD_DIR"
 mkdir -p "$DIST_DIR"
 
 echo "================================================================="
-echo "[1/4] Compiling Binaries for Target Platforms..."
+echo "[1/4] Compiling Native Binary..."
 echo "================================================================="
 
-# Windows 64-bit
-echo "[i] Compiling Windows (x64)..."
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H=windowsgui" -o "$BUILD_DIR/vWriter.exe" .
-echo "    -> Built: $BUILD_DIR/vWriter.exe"
+# Gio requires cgo + native SDK: only the host platform can be compiled here.
+# Run this script on each OS to produce its binary; drop the resulting zip
+# into dist/ (or build it with build_linux.sh / build_macos.sh / build.ps1).
+case "$(uname -s)" in
+    Linux*)                        NATIVE_OS="linux" ;;
+    Darwin*)                       NATIVE_OS="darwin" ;;
+    MINGW*|MSYS*|CYGWIN*)          NATIVE_OS="windows" ;;
+    *)                             NATIVE_OS="unknown" ;;
+esac
 
-# macOS Silicon (ARM64)
-echo "[i] Compiling macOS Silicon (ARM64)..."
-GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "$BUILD_DIR/vWriter_mac_arm64" .
-echo "    -> Built: $BUILD_DIR/vWriter_mac_arm64"
+case "$(uname -m)" in
+    x86_64|amd64)                  NATIVE_ARCH="amd64" ;;
+    arm64|aarch64)                 NATIVE_ARCH="arm64" ;;
+    *)                             NATIVE_ARCH="unknown" ;;
+esac
 
-# Linux 64-bit
-echo "[i] Compiling Linux (x64)..."
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$BUILD_DIR/vWriter_linux_amd64" .
-echo "    -> Built: $BUILD_DIR/vWriter_linux_amd64"
+echo "[i] Host platform: ${NATIVE_OS}/${NATIVE_ARCH}"
+
+NATIVE_BIN=""
+case "$NATIVE_OS" in
+    windows)
+        echo "[i] Compiling Windows (${NATIVE_ARCH})..."
+        go build -ldflags="-s -w -H=windowsgui" -o "$BUILD_DIR/vWriter.exe" .
+        NATIVE_BIN="vWriter.exe"
+        ;;
+    darwin)
+        echo "[i] Compiling macOS (${NATIVE_ARCH})..."
+        go build -ldflags="-s -w" -o "$BUILD_DIR/vWriter_mac_${NATIVE_ARCH}" .
+        NATIVE_BIN="vWriter_mac_${NATIVE_ARCH}"
+        ;;
+    linux)
+        echo "[i] Compiling Linux (${NATIVE_ARCH})..."
+        go build -ldflags="-s -w" -o "$BUILD_DIR/vWriter_linux_${NATIVE_ARCH}" .
+        NATIVE_BIN="vWriter_linux_${NATIVE_ARCH}"
+        ;;
+    *)
+        echo "[X] Error: unsupported host platform '${NATIVE_OS}'."
+        exit 1
+        ;;
+esac
+echo "    -> Built: $BUILD_DIR/$NATIVE_BIN"
 
 echo ""
 echo "================================================================="
 echo "[2/4] Packaging Release Archives (.zip)..."
 echo "================================================================="
 
-WIN_ZIP="vWriter_${VERSION}_windows_amd64.zip"
-MAC_ZIP="vWriter_${VERSION}_macos_arm64.zip"
-LINUX_ZIP="vWriter_${VERSION}_linux_amd64.zip"
+NATIVE_ZIP="vWriter_${VERSION}_${NATIVE_OS}_${NATIVE_ARCH}.zip"
 
 create_zip() {
     local zip_name="$1"
@@ -145,32 +170,39 @@ create_zip() {
     echo "    -> Created: $DIST_DIR/$zip_name"
 }
 
-create_zip "$WIN_ZIP" "vWriter.exe" "vWriter.exe"
-create_zip "$MAC_ZIP" "vWriter_mac_arm64" "vWriter"
-create_zip "$LINUX_ZIP" "vWriter_linux_amd64" "vWriter"
+# Target binary name differs between OSes (vWriter.exe on Windows, vWriter elsewhere)
+TARGET_BIN="vWriter"
+[ "$NATIVE_OS" = "windows" ] && TARGET_BIN="vWriter.exe"
+create_zip "$NATIVE_ZIP" "$NATIVE_BIN" "$TARGET_BIN"
 
 rm -rf "$BUILD_DIR"
 
 echo ""
 echo "================================================================="
-echo "[3/4] Release Compilation Verification"
+echo "[3/4] Release Verification"
 echo "================================================================="
 
+# Gather every vWriter_<version>_*.zip present in dist/ (native just created,
+# other platforms from their own build scripts run on their host OS).
 MISSING=0
-for zip in "$WIN_ZIP" "$MAC_ZIP" "$LINUX_ZIP"; do
-    if [ -f "$DIST_DIR/$zip" ]; then
-        SIZE=$(du -h "$DIST_DIR/$zip" | cut -f1)
-        echo "  [OK] $DIST_DIR/$zip ($SIZE)"
-    else
-        echo "  [X] Missing: $DIST_DIR/$zip"
-        MISSING=1
+ARTIFACTS=()
+for zip in "$DIST_DIR"/vWriter_"${VERSION}"_*.zip; do
+    if [ -f "$zip" ]; then
+        SIZE=$(du -h "$zip" | cut -f1)
+        echo "  [OK] $zip ($SIZE)"
+        ARTIFACTS+=("$zip")
     fi
 done
 
-if [ "$MISSING" -ne 0 ]; then
-    echo "[X] Release build failed. Missing artifacts."
+if [ "${#ARTIFACTS[@]}" -eq 0 ]; then
+    echo "[X] No release artifacts found in '$DIST_DIR/'."
     exit 1
 fi
+
+echo ""
+echo "  Platforms detected: ${#ARTIFACTS[@]} of 3 binaries."
+echo "  If a platform is missing, run this script (or the matching build"
+echo "  script) on that OS and copy its zip into '$DIST_DIR/'."
 
 echo ""
 echo "================================================================="
@@ -178,7 +210,8 @@ echo "[4/4] Confirmation & GitHub Release"
 echo "================================================================="
 echo "Version Tag : ${VERSION}"
 echo "Repository  : ${REPO_FULL}"
-echo "Artifacts   : ${WIN_ZIP}, ${MAC_ZIP}, ${LINUX_ZIP}"
+echo "Artifacts   :"
+for a in "${ARTIFACTS[@]}"; do echo "  - $a"; done
 echo ""
 
 read -p "Proceed to tag '${VERSION}', push to origin, and create GitHub Release? (y/N): " CONFIRM
@@ -197,9 +230,7 @@ git push origin "$VERSION"
 if command -v gh >/dev/null 2>&1; then
     echo "[i] Creating GitHub Release using gh CLI..."
     gh release create "$VERSION" \
-        "$DIST_DIR/$WIN_ZIP" \
-        "$DIST_DIR/$MAC_ZIP" \
-        "$DIST_DIR/$LINUX_ZIP" \
+        "${ARTIFACTS[@]}" \
         --title "vWriter $VERSION" \
         --notes "Release $VERSION of vWriter Video Prompt Studio."
 else
@@ -234,13 +265,13 @@ EOF
     fi
 
     # Upload Zip Assets
-    for zip in "$WIN_ZIP" "$MAC_ZIP" "$LINUX_ZIP"; do
+    for zip in "${ARTIFACTS[@]}"; do
         echo "[i] Uploading asset: $zip..."
         curl -s -X POST \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Content-Type: application/zip" \
-            "${UPLOAD_URL}?name=${zip}" \
-            --data-binary "@$DIST_DIR/$zip" >/dev/null
+            "${UPLOAD_URL}?name=$(basename "$zip")" \
+            --data-binary "@$zip" >/dev/null
     done
 fi
 
