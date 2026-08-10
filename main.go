@@ -18,6 +18,7 @@ import (
 )
 
 func main() {
+	giouiApp.ID = "com.github.jonathanhecl.vwriter"
 	debug := flag.Bool("debug", false, "list Ollama models with vision capability and exit")
 	ollamaURL := flag.String("url", ollama.DefaultURL, "Ollama server URL")
 	flag.Parse()

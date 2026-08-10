@@ -43,7 +43,7 @@ func (a *App) widgetsFor(assetID string) *assetWidgets {
 // layoutMediaSection renders the media header and the asset cards.
 func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 	assets := a.engine.Store.List(a.session)
-	return card(gtx, 12, func(gtx layout.Context) layout.Dimensions {
+	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
@@ -66,7 +66,7 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: 4, Bottom: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return bodyText(gtx, a.theme, "Up to 9 images, 3 videos, and 3 audio files. Videos and audio clips must be 2–15 s.")
+					return bodyText(gtx, a.theme, "Up to 9 images, 3 videos, and 3 audio files. Clips must be 2–15 seconds.")
 				})
 			}),
 		}

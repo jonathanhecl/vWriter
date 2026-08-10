@@ -22,6 +22,7 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	config.OllamaURL = "http://192.168.1.50:11434"
 	config.Model = "gemma3:12b"
 	config.Thinking = true
+	config.CreativeBrief = "A nocturnal medieval logo reveal."
 	config.SystemPromptOverride = "Custom."
 	if err := config.Save(path); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -38,6 +39,9 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	}
 	if loaded.SystemPrompt() == nil || *loaded.SystemPrompt() != "Custom." {
 		t.Fatal("system prompt override lost")
+	}
+	if loaded.CreativeBrief != config.CreativeBrief {
+		t.Fatal("creative brief lost")
 	}
 	def := Default()
 	if def.SystemPrompt() != nil {

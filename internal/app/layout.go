@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 
 	"gioui.org/layout"
@@ -25,7 +26,7 @@ func (a *App) layout(gtx layout.Context) {
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Max.X = gtx.Dp(480)
+							gtx.Constraints.Max.X = gtx.Dp(460)
 							gtx.Constraints.Min.X = gtx.Constraints.Max.X
 							return a.layoutInput(gtx)
 						}),
@@ -47,22 +48,20 @@ func (a *App) layout(gtx layout.Context) {
 
 // layoutHeader renders the title, Ollama URL, and model picker.
 func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
-	return layout.Inset{Top: 10, Bottom: 10, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Top: 12, Bottom: 12, Left: 18, Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				title := material.H6(a.theme, "vWriter")
-				title.Color = colorText
-				return title.Layout(gtx)
+				return a.layoutBrand(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: 16, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return bodyText(gtx, a.theme, "Ollama")
+				return layout.Inset{Left: 30, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return sectionLabel(gtx, a.theme, "Ollama endpoint")
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(230)
 				gtx.Constraints.Max.X = gtx.Dp(230)
-				return a.editorBox(gtx, &a.urlEditor, 30)
+				return a.editorBox(gtx, &a.urlEditor, 34)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -70,17 +69,53 @@ func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return a.smallButton(gtx, &a.refreshBtn, "Refresh")
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(300)
+				gtx.Constraints.Min.X = gtx.Dp(320)
 				return a.layoutModelPicker(gtx)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 		)
 	})
+}
+
+// layoutBrand renders the compact product mark and its descriptor.
+func (a *App) layoutBrand(gtx layout.Context) layout.Dimensions {
+	return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			size := gtx.Dp(30)
+			gtx.Constraints.Min = image.Pt(size, size)
+			gtx.Constraints.Max = image.Pt(size, size)
+			return layout.Stack{}.Layout(gtx,
+				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+					fill(gtx, 9, colorAccent)
+					return layout.Dimensions{Size: gtx.Constraints.Min}
+				}),
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(a.theme, 17, "V")
+						l.Color = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+						return l.Layout(gtx)
+					})
+				}),
+			)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: 9}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(a.theme, 18, "vWriter")
+						l.Color = colorText
+						return l.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return bodyText(gtx, a.theme, "VIDEO PROMPT STUDIO") }),
+				)
+			})
+		}),
+	)
 }
 
 // layoutModelPicker renders the model dropdown and its status.
@@ -98,13 +133,13 @@ func (a *App) layoutModelPicker(gtx layout.Context) layout.Dimensions {
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return bodyText(gtx, a.theme, "Loading models?")
+					return bodyText(gtx, a.theme, "Loading models…")
 				})
 			}),
 		)
 	}
 	if len(models) == 0 {
-		text := "No models ? check the URL and press Connect"
+		text := "No models — check the URL and press Connect"
 		if modelsErr != "" {
 			text = modelsErr
 		}
@@ -136,7 +171,7 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 	tokens := a.streamTokens
 	a.mu.Unlock()
 
-	return layout.Inset{Top: 8, Bottom: 8, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Top: 10, Bottom: 14, Left: 18, Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if !generating {
@@ -150,7 +185,7 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							text := phaseLabel(phase)
 							if phase == engine.PhaseGenerating && tokens > 0 {
-								text = fmt.Sprintf("%s ? %d tokens", text, tokens)
+								text = fmt.Sprintf("%s · %d tokens", text, tokens)
 							}
 							l := material.Label(a.theme, 13, text)
 							l.Color = colorTextDim
@@ -179,15 +214,15 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 func phaseLabel(phase string) string {
 	switch phase {
 	case engine.PhaseLoadingModel:
-		return "Loading model?"
+		return "Loading model…"
 	case engine.PhaseProcessingMedia:
-		return "Processing media?"
+		return "Processing media…"
 	case engine.PhaseGenerating:
-		return "Generating?"
+		return "Generating…"
 	case engine.PhaseRepairing:
-		return "Repairing format?"
+		return "Repairing format…"
 	case engine.PhaseCancelling:
-		return "Cancelling?"
+		return "Cancelling…"
 	}
 	return phase
 }
@@ -203,6 +238,7 @@ func (a *App) vDivider(gtx layout.Context) layout.Dimensions {
 func (a *App) primaryButton(gtx layout.Context, btn *widget.Clickable, label string) layout.Dimensions {
 	b := material.Button(a.theme, btn, label)
 	b.Background = colorAccent
+	b.TextSize = 13
 	return b.Layout(gtx)
 }
 

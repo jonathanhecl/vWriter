@@ -124,7 +124,7 @@ func Run(window *app.Window) error {
 	a.urlEditor.SingleLine = true
 	a.urlEditor.SetText(cfg.OllamaURL)
 	a.briefEditor.SingleLine = false
-	a.sysEditor.SetText("")
+	a.briefEditor.SetText(cfg.CreativeBrief)
 	a.outputEditor.ReadOnly = false
 	a.duration.Value = float32(cfg.DurationSeconds-1) / 19 // slider 0..1 maps to 1..20 s
 	for index, option := range aspectOptions {
@@ -198,8 +198,12 @@ func (a *App) applyAsync() {
 func (a *App) saveConfig() {
 	a.cfg.OllamaURL = a.urlEditor.Text()
 	a.cfg.DurationSeconds = float64(a.durationSeconds())
+	a.cfg.AspectRatio = aspectOptions[a.aspectIndex]
+	a.cfg.ContextProfile = contextProfiles[a.contextIndex]
 	a.cfg.Thinking = a.thinking.Value
 	a.cfg.KeepModelLoaded = a.keepLoaded.Value
+	a.cfg.CreativeBrief = a.briefEditor.Text()
+	a.cfg.SystemPromptOverride = a.sysEditor.Text()
 	_ = a.cfg.Save(a.cfgPath)
 }
 

@@ -2,6 +2,7 @@ package app
 
 import (
 	"gioui.org/layout"
+	"gioui.org/widget"
 )
 
 // handleEvents processes widget events for the current frame.
@@ -50,5 +51,16 @@ func (a *App) handleEvents(gtx layout.Context) {
 	}
 	if a.duration.Update(gtx) {
 		a.saveConfig()
+	}
+	for _, editor := range []*widget.Editor{&a.urlEditor, &a.briefEditor, &a.sysEditor} {
+		for {
+			event, ok := editor.Update(gtx)
+			if !ok {
+				break
+			}
+			if _, changed := event.(widget.ChangeEvent); changed {
+				a.saveConfig()
+			}
+		}
 	}
 }

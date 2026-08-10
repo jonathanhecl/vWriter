@@ -20,6 +20,7 @@ type Config struct {
 	KeepModelLoaded      bool    `json:"keep_model_loaded"`
 	DurationSeconds      float64 `json:"duration_seconds"`
 	AspectRatio          string  `json:"aspect_ratio"`
+	CreativeBrief        string  `json:"creative_brief"`
 	SystemPromptOverride string  `json:"system_prompt_override"` // empty means default
 }
 

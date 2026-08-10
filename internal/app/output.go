@@ -11,13 +11,13 @@ import (
 // layoutOutput renders the right column: the generated prompt editor, its
 // actions, and the refine bar.
 func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
-	return layout.Inset{Top: 4, Bottom: 4, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Top: 12, Bottom: 8, Left: 20, Right: 20}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return a.layoutOutputHeader(gtx)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 10, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return a.multilineBox(gtx, &a.outputEditor,
 						"The generated prompt appears here. You can edit it before copying.")
 				})
@@ -35,7 +35,7 @@ func (a *App) layoutOutputHeader(gtx layout.Context) layout.Dimensions {
 	modified := a.hasResult && a.outputEditor.Text() != a.lastAIMark
 	return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return sectionLabel(gtx, a.theme, "Generated prompt")
+			return sectionLabel(gtx, a.theme, "Generated full-reference prompt")
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !modified {

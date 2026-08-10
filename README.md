@@ -42,6 +42,23 @@ Build a binary for your platform:
 go build -o vWriter .
 ```
 
+## Release builds and app icon
+
+`appicon.png` is the production app icon. It is generated from the editable
+source at `assets/appicon.svg` and is picked up automatically by Gio's
+`gogio` packager for Windows, macOS, and Linux bundles.
+
+```sh
+go install gioui.org/cmd/gogio@v0.10.1
+gogio -target windows -o dist/vWriter.exe .
+gogio -target darwin -o dist/vWriter.app .
+gogio -target linux -o dist/vWriter .
+```
+
+Cross-compiling macOS requires a macOS SDK/toolchain; build its release on a
+Mac when that is not available. The `com.github.jonathanhecl.vwriter` app ID
+is set at startup for platform integration.
+
 ## How it works
 
 ```text
