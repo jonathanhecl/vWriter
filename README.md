@@ -1,15 +1,21 @@
 # vWriter
 
-A native desktop app that turns a creative brief plus image, video, and audio
-references into a structured full-reference video prompt, powered by a local
-or remote [Ollama](https://ollama.com) vision model.
+vWriter is a **MiniMax H3 video prompt studio**. It was built from the start for
+[MiniMax H3](https://www.minimax.io/), which is why the output follows MiniMax's
+official full-reference prompt format. It is the format H3 itself was trained
+to consume, so prompts come out the way the model expects them.
+
+The app turns a creative brief plus image, video, and audio references into a
+structured full-reference video prompt, powered by a local or remote
+[Ollama](https://ollama.com) vision model.
 
 ![vWriter UI](assets/screenshot.png)
 
 vWriter follows the official MiniMax H3 full-reference prompt-writing guide to
 produce a six-section prompt (`subject_definitions`, `summary`,
 `retention_analysis`, `detailed_description`, `overall_soundscape`,
-`non_diegetic_music`) ready to paste into your video-generation workflow.
+`non_diegetic_music`) ready to paste into your MiniMax H3 (or any compatible)
+video-generation workflow.
 
 ## Features
 
