@@ -229,7 +229,7 @@ func (a *App) collapsibleHeader(gtx layout.Context, state *widget.Bool, title st
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				chevron := "›"
 				if state.Value {
-					chevron = "⌄"
+					chevron = "v"
 				}
 				l := material.Label(a.theme, 18, chevron)
 				l.Color = colorAccent
