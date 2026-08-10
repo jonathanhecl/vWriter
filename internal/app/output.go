@@ -32,6 +32,11 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 				if !a.hasResult && strings.TrimSpace(a.outputEditor.Text()) == "" {
 					return a.layoutOutputEmpty(gtx)
 				}
+				if a.highlightMode && a.hasResult {
+					return layout.Inset{Top: 10, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.layoutHighlightedOutput(gtx)
+					})
+				}
 				return layout.Inset{Top: 10, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return a.multilineBox(gtx, &a.outputEditor,
 						"The generated prompt appears here. You can edit it before copying.")
@@ -194,6 +199,17 @@ func (a *App) layoutOutputHeader(gtx layout.Context) layout.Dimensions {
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return a.smallButton(gtx, &a.copyBtn, "Copy prompt")
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if a.highlightBtn.Clicked(gtx) {
+							a.highlightMode = !a.highlightMode
+						}
+						label := "Highlight off"
+						if a.highlightMode {
+							label = "Highlight on"
+						}
+						return a.smallButton(gtx, &a.highlightBtn, label)
 					}),
 				)
 			})

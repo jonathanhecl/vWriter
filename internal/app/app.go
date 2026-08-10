@@ -121,10 +121,14 @@ type App struct {
 	cancelSaveBtn    widget.Clickable
 
 	toasts      []toastMsg
-	modal       *media.Asset // non-nil while a preview modal is open
+	modal       *media.Asset     // non-nil while a preview modal is open
 	assetModal  *assetModalState // non-nil while the role/label modal is open
-	originalOut string       // pre-refine output for restore
-	lastAIMark  string       // last AI-produced output for the Modified badge
+	originalOut string           // pre-refine output for restore
+	lastAIMark  string           // last AI-produced output for the Modified badge
+
+	highlightMode  bool           // true = render highlighted view instead of plain editor
+	highlightState highlightState // richtext state for highlighted output
+	highlightBtn   widget.Clickable
 }
 
 // Run starts the window event loop.
