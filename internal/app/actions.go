@@ -443,7 +443,27 @@ func (a *App) loadPreset(index int) {
 		for _, asset := range p.Assets {
 			if asset.Path != "" {
 				if _, err := os.Stat(asset.Path); err == nil {
-					_, _ = a.engine.Store.Add(a.session, asset.Path)
+					loaded, err2 := a.engine.Store.Add(a.session, asset.Path)
+					if err2 == nil && (asset.Role != "" || asset.Label != "") {
+						_, _ = a.engine.Store.SetRole(a.session, loaded.ID, asset.Role, asset.Label, "")
+					}
+				}
+			}
+		}
+		// Resolve LinkedAssetFilename → LinkedAssetID now that all assets are loaded
+		for _, pa := range p.Assets {
+			if pa.LinkedAssetFilename != "" {
+				var voiceID, linkedID string
+				for _, a2 := range a.engine.Store.List(a.session) {
+					if a2.Filename == pa.Filename {
+						voiceID = a2.ID
+					}
+					if a2.Filename == pa.LinkedAssetFilename {
+						linkedID = a2.ID
+					}
+				}
+				if voiceID != "" && linkedID != "" {
+					_, _ = a.engine.Store.SetRole(a.session, voiceID, pa.Role, pa.Label, linkedID)
 				}
 			}
 		}
@@ -474,11 +494,23 @@ func (a *App) autoSaveCurrentPreset() {
 
 	var presetAssets []config.PresetAsset
 	for _, asset := range a.engine.Store.List(a.session) {
-		presetAssets = append(presetAssets, config.PresetAsset{
+		pa := config.PresetAsset{
 			Type:     string(asset.Type),
 			Path:     asset.OriginalPath,
 			Filename: asset.Filename,
-		})
+			Role:     asset.Role,
+			Label:    asset.Label,
+		}
+		// Resolve linked asset ID → filename for portability
+		if asset.LinkedAssetID != "" {
+			for _, a2 := range a.engine.Store.List(a.session) {
+				if a2.ID == asset.LinkedAssetID {
+					pa.LinkedAssetFilename = a2.Filename
+					break
+				}
+			}
+		}
+		presetAssets = append(presetAssets, pa)
 	}
 
 	_, _ = a.presetStore.AddOrUpdate(presetName, brief, dur, aspect, sys, output, presetAssets)

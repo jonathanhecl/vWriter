@@ -175,9 +175,10 @@ func referenceManifestText(declared []*media.Asset) string {
 	if len(declared) == 0 {
 		return "None"
 	}
+	all := declared // declared is already the full relevant set
 	lines := make([]string, len(declared))
 	for index, asset := range declared {
-		lines[index] = media.ReferenceLine(asset)
+		lines[index] = media.ReferenceLineWithLinked(asset, all)
 	}
 	return strings.Join(lines, "\n")
 }

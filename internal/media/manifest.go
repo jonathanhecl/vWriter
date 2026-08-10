@@ -63,5 +63,32 @@ func ReferenceLine(asset *Asset) string {
 	if asset.Type == Audio {
 		detail += ", not analyzed by the local model; role must come only from the user's brief"
 	}
-	return fmt.Sprintf("%s: %s (%s)", asset.Reference, asset.Filename, detail)
+	line := fmt.Sprintf("%s: %s (%s)", asset.Reference, asset.Filename, detail)
+
+	// Append user-assigned semantic context if provided.
+	if asset.Role != "" {
+		meta := "role: " + asset.Role
+		if asset.Label != "" {
+			meta += ", label: " + asset.Label
+		}
+		line += " [" + meta + "]"
+	} else if asset.Label != "" {
+		line += " [label: " + asset.Label + "]"
+	}
+	return line
+}
+
+// ReferenceLineWithLinked renders a ReferenceLine augmented with linked-asset info.
+// assets is the full session list used to resolve LinkedAssetID.
+func ReferenceLineWithLinked(asset *Asset, all []*Asset) string {
+	line := ReferenceLine(asset)
+	if asset.LinkedAssetID != "" {
+		for _, a := range all {
+			if a.ID == asset.LinkedAssetID {
+				line += " [voice for " + a.Reference + "]"
+				break
+			}
+		}
+	}
+	return line
 }

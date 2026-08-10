@@ -53,6 +53,7 @@ func (a *App) layout(gtx layout.Context) {
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutToasts(gtx) }),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutModal(gtx) }),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutSavePresetModal(gtx) }),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutAssetRoleModal(gtx) }),
 	)
 }
 

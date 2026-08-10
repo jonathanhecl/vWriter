@@ -72,6 +72,11 @@ type Asset struct {
 	SampleIndex      int     `json:"sample_index,omitempty"`
 	Frames           []Frame `json:"frames,omitempty"`
 
+	// User-assigned semantic metadata (optional; not required for generation).
+	Role          string `json:"role,omitempty"`           // e.g. "person", "scene", "music", "voice"
+	Label         string `json:"label,omitempty"`          // e.g. "John", "office background"
+	LinkedAssetID string `json:"linked_asset_id,omitempty"` // for audio voice: the picture asset ID it belongs to
+
 	// On-disk locations. OriginalPath is the user's file and is never deleted.
 	OriginalPath     string `json:"original_path"`
 	PreparedPath     string `json:"prepared_path,omitempty"`
@@ -217,6 +222,20 @@ func (s *Store) Clear(sessionID string) {
 	}
 	delete(s.sessions, sessionID)
 	os.RemoveAll(filepath.Join(s.root, sessionID))
+}
+
+// SetRole sets the semantic role, label, and optional linked asset on an asset.
+func (s *Store) SetRole(sessionID, assetID, role, label, linkedAssetID string) (*Asset, error) {
+	asset, err := s.Get(sessionID, assetID)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	asset.Role = role
+	asset.Label = label
+	asset.LinkedAssetID = linkedAssetID
+	s.mu.Unlock()
+	return asset, nil
 }
 
 // SetAnalysis toggles whether an asset is sent to the model for analysis.

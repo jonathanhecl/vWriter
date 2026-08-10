@@ -122,6 +122,7 @@ type App struct {
 
 	toasts      []toastMsg
 	modal       *media.Asset // non-nil while a preview modal is open
+	assetModal  *assetModalState // non-nil while the role/label modal is open
 	originalOut string       // pre-refine output for restore
 	lastAIMark  string       // last AI-produced output for the Modified badge
 }

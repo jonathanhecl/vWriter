@@ -350,16 +350,12 @@ func (a *App) layoutAddMediaCard(gtx layout.Context) layout.Dimensions {
 func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, total int) layout.Dimensions {
 	widgets := a.widgetsFor(asset.ID)
 	if widgets.preview.Clicked(gtx) {
-		a.modal = asset
-		a.modalStateSet = nil
-		for index, mode := range []string{"auto", "6", "8"} {
-			if mode == asset.FrameCountMode {
-				a.modalFrameIndex = index
-			}
-		}
+		// Open role/label modal.
+		a.assetModal = newAssetModal(asset, a.engine.Store.List(a.session))
 	}
 	if widgets.remove.Clicked(gtx) {
 		_ = a.engine.Store.Remove(a.session, asset.ID)
+		a.autoSaveCurrentPreset()
 		return layout.Dimensions{}
 	}
 
@@ -421,12 +417,25 @@ func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, tot
 										return l.Layout(gtx)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										sub := asset.ID
-										if len(sub) > 12 {
-											sub = sub[:12] + "..."
+										// Show role badge if assigned.
+										badgeText := asset.Role
+										if badgeText == "" {
+											badgeText = asset.Filename
+											if len(badgeText) > 14 {
+												badgeText = badgeText[:12] + "…"
+											}
+										} else if asset.Label != "" {
+											badgeText = asset.Role + ": " + asset.Label
+											if len(badgeText) > 16 {
+												badgeText = badgeText[:14] + "…"
+											}
 										}
-										l := material.Label(a.theme, 10, sub)
-										l.Color = colorTextDim
+										l := material.Label(a.theme, 10, badgeText)
+										if asset.Role != "" {
+											l.Color = colorAccent
+										} else {
+											l.Color = colorTextDim
+										}
 										l.MaxLines = 1
 										return l.Layout(gtx)
 									}),
