@@ -46,44 +46,47 @@ func (a *App) layout(gtx layout.Context) {
 	)
 }
 
-// layoutHeader renders the title, Ollama URL, and model picker.
+// layoutHeader renders the top bar: brand mark, Ollama endpoint controls, and model controls.
 func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 	return layout.Inset{Top: 12, Bottom: 12, Left: 18, Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return a.layoutBrand(gtx)
 			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: 30, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return sectionLabel(gtx, a.theme, "Ollama endpoint")
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(230)
-				gtx.Constraints.Max.X = gtx.Dp(230)
+				gtx.Constraints.Min.X = gtx.Dp(200)
+				gtx.Constraints.Max.X = gtx.Dp(200)
 				return a.editorBox(gtx, &a.urlEditor, 34)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: 6, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return a.smallButton(gtx, &a.connectBtn, "Connect")
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return a.smallButton(gtx, &a.refreshBtn, "Refresh")
+				return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return sectionLabel(gtx, a.theme, "Model")
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(280)
+				gtx.Constraints.Min.X = gtx.Dp(250)
 				gtx.Constraints.Max.X = gtx.Constraints.Min.X
 				return a.layoutModelPicker(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return a.smallButton(gtx, &a.unloadBtn, "Unload")
+				return layout.Inset{Left: 6, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.smallButton(gtx, &a.refreshBtn, "Refresh")
 				})
 			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.smallButton(gtx, &a.unloadBtn, "Unload")
+			}),
 		)
 	})
 }

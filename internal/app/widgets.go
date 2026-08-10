@@ -88,18 +88,20 @@ func (d *dropdown) Layout(gtx layout.Context, th *material.Theme, options []stri
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: 7, Bottom: 7, Left: 10, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(th, 14, label)
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(th, 13, label)
 						l.Color = colorText
+						l.MaxLines = 1
 						return l.Layout(gtx)
 					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(th, 14, "▾")
-						l.Color = colorTextDim
-						return l.Layout(gtx)
+						return layout.Inset{Left: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(th, 12, "▾")
+							l.Color = colorTextDim
+							return l.Layout(gtx)
+						})
 					}),
 				)
 			})
@@ -135,12 +137,13 @@ func (d *dropdown) layoutMenu(gtx layout.Context, th *material.Theme, options []
 					children[index] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return d.items[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								l := material.Label(th, 14, option)
+								l := material.Label(th, 13, option)
 								if index == selected {
 									l.Color = colorAccent
 								} else {
 									l.Color = colorText
 								}
+								l.MaxLines = 1
 								return l.Layout(gtx)
 							})
 						})
