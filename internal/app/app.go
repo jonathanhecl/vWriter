@@ -165,6 +165,17 @@ func Run(window *app.Window) error {
 			a.contextIndex = index
 		}
 	}
+
+	// Always select and load DEFAULT preset on startup
+	presets := a.presetStore.List()
+	defaultIndex := 0
+	for i, p := range presets {
+		if p.Name == "DEFAULT" {
+			defaultIndex = i
+			break
+		}
+	}
+	a.loadPreset(defaultIndex)
 	a.thinking.Value = cfg.Thinking
 	a.keepLoaded.Value = cfg.KeepModelLoaded
 	a.sysEditor.SetText(cfg.SystemPromptOverride)

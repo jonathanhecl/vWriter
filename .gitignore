@@ -30,6 +30,7 @@ go.work.sum
 # vWriter runtime files (created next to the executable)
 config.json
 generations.jsonl
+dist/
 
 # Editor/IDE
 # .idea/

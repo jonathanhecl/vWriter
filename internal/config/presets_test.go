@@ -14,8 +14,8 @@ func TestPresetStore(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	if len(store.List()) != 0 {
-		t.Fatalf("expected empty store")
+	if len(store.List()) != 1 || store.List()[0].Name != "DEFAULT" {
+		t.Fatalf("expected DEFAULT preset in new store")
 	}
 
 	p1, err := store.AddOrUpdate("Action Sequence", "Use video 1 as motion reference", 10, "16:9", "", nil)
@@ -27,8 +27,8 @@ func TestPresetStore(t *testing.T) {
 		t.Errorf("unexpected name: %s", p1.Name)
 	}
 
-	if len(store.List()) != 1 {
-		t.Fatalf("expected 1 preset")
+	if len(store.List()) != 2 {
+		t.Fatalf("expected 2 presets")
 	}
 
 	// Reload from disk
@@ -36,15 +36,15 @@ func TestPresetStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to reload store: %v", err)
 	}
-	if len(store2.List()) != 1 {
-		t.Fatalf("expected 1 preset after reload")
+	if len(store2.List()) != 2 {
+		t.Fatalf("expected 2 presets after reload")
 	}
 
 	// Delete preset
 	if err := store2.Delete(p1.ID); err != nil {
 		t.Fatalf("failed to delete preset: %v", err)
 	}
-	if len(store2.List()) != 0 {
-		t.Fatalf("expected 0 presets after delete")
+	if len(store2.List()) != 1 {
+		t.Fatalf("expected 1 preset (DEFAULT) after delete")
 	}
 }

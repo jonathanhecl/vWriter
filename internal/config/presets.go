@@ -53,7 +53,29 @@ func NewPresetStore(path string) (*PresetStore, error) {
 	}
 	store := &PresetStore{path: path, Presets: []*Preset{}}
 	_ = store.Load()
+	store.EnsureDefault()
 	return store, nil
+}
+
+// EnsureDefault makes sure a DEFAULT preset exists.
+func (s *PresetStore) EnsureDefault() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, p := range s.Presets {
+		if p.Name == "DEFAULT" {
+			return
+		}
+	}
+	defaultPreset := &Preset{
+		ID:          newPresetID(),
+		Name:        "DEFAULT",
+		Duration:    10,
+		AspectRatio: "16:9",
+		CreatedAt:   time.Now().Format(time.RFC3339),
+	}
+	s.Presets = append([]*Preset{defaultPreset}, s.Presets...)
+	_ = s.saveLocked()
 }
 
 // Load reads presets.json into memory.
@@ -84,6 +106,10 @@ func (s *PresetStore) Save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	return s.saveLocked()
+}
+
+func (s *PresetStore) saveLocked() error {
 	raw, err := json.MarshalIndent(struct {
 		Presets []*Preset `json:"presets"`
 	}{Presets: s.Presets}, "", "  ")
@@ -140,6 +166,9 @@ func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio,
 
 // Delete removes a preset by ID or Name.
 func (s *PresetStore) Delete(idOrName string) error {
+	if idOrName == "DEFAULT" {
+		return errors.New("cannot delete DEFAULT preset")
+	}
 	s.mu.Lock()
 	updated := []*Preset{}
 	for _, p := range s.Presets {

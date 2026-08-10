@@ -125,17 +125,19 @@ func (a *App) addFile() {
 			a.mu.Lock()
 			a.toasts = append(a.toasts, toastMsg{text: errorText(err), details: errorDetails(err), isError: true})
 			a.mu.Unlock()
+		} else {
+			a.autoSaveCurrentPreset()
 		}
 		a.window.Invalidate()
 	}()
 }
 
-// addMedia opens a multi-file picker dialog and registers all chosen files.
+// addMedia picks any supported image, video or audio file.
 func (a *App) addMedia() {
 	go func() {
 		files, err := a.explorer.ChooseFiles(mediaExtensions...)
 		if err != nil || len(files) == 0 {
-			return // user cancelled or no files selected
+			return
 		}
 		for _, file := range files {
 			if file == nil {
@@ -144,15 +146,14 @@ func (a *App) addMedia() {
 			path := filePath(file)
 			file.Close()
 			if path == "" {
-				a.mu.Lock()
-				a.toasts = append(a.toasts, toastMsg{text: "Could not resolve file path.", isError: true})
-				a.mu.Unlock()
 				continue
 			}
 			if _, err := a.engine.Store.Add(a.session, path); err != nil {
 				a.mu.Lock()
 				a.toasts = append(a.toasts, toastMsg{text: errorText(err), details: errorDetails(err), isError: true})
 				a.mu.Unlock()
+			} else {
+				a.autoSaveCurrentPreset()
 			}
 		}
 		a.window.Invalidate()
@@ -445,15 +446,53 @@ func (a *App) loadPreset(index int) {
 	a.window.Invalidate()
 }
 
-// deleteCurrentPreset deletes the currently selected preset.
+// autoSaveCurrentPreset automatically syncs current editor & media state into the active preset (or DEFAULT).
+func (a *App) autoSaveCurrentPreset() {
+	presets := a.presetStore.List()
+	presetName := "DEFAULT"
+	if a.presetIndex >= 0 && a.presetIndex < len(presets) {
+		presetName = presets[a.presetIndex].Name
+	}
+
+	brief := a.briefEditor.Text()
+	dur := a.durationSeconds()
+	aspect := "16:9"
+	if a.aspectIndex >= 0 && a.aspectIndex < len(aspectOptions) {
+		aspect = aspectOptions[a.aspectIndex]
+	}
+	sys := a.sysEditor.Text()
+
+	var presetAssets []config.PresetAsset
+	for _, asset := range a.engine.Store.List(a.session) {
+		presetAssets = append(presetAssets, config.PresetAsset{
+			Type:     string(asset.Type),
+			Path:     asset.OriginalPath,
+			Filename: asset.Filename,
+		})
+	}
+
+	_, _ = a.presetStore.AddOrUpdate(presetName, brief, dur, aspect, sys, presetAssets)
+}
+
+// deleteCurrentPreset deletes the currently selected preset (cannot delete DEFAULT).
 func (a *App) deleteCurrentPreset() {
 	presets := a.presetStore.List()
 	if a.presetIndex < 0 || a.presetIndex >= len(presets) {
 		return
 	}
 	p := presets[a.presetIndex]
+	if p.Name == "DEFAULT" {
+		return
+	}
 	_ = a.presetStore.Delete(p.ID)
-	a.presetIndex = -1
+	// Reset to DEFAULT
+	presets = a.presetStore.List()
+	for i, item := range presets {
+		if item.Name == "DEFAULT" {
+			a.loadPreset(i)
+			break
+		}
+	}
 	a.mu.Lock()
 	a.toasts = append(a.toasts, toastMsg{text: fmt.Sprintf("Deleted template '%s'", p.Name)})
 	a.mu.Unlock()

@@ -105,6 +105,7 @@ func (a *App) layoutTargetSection(gtx layout.Context) layout.Dimensions {
 								a.aspectIndex = chosen
 								a.cfg.AspectRatio = aspectOptions[chosen]
 								a.saveConfig()
+								a.autoSaveCurrentPreset()
 							}
 							return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(36))}
 						})
@@ -158,7 +159,7 @@ func (a *App) layoutPresetsSection(gtx layout.Context) layout.Dimensions {
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if a.presetIndex >= 0 {
+							if a.presetIndex >= 0 && a.presetIndex < len(presets) && presets[a.presetIndex].Name != "DEFAULT" {
 								return a.smallButton(gtx, &a.deletePresetBtn, "Delete")
 							}
 							return layout.Dimensions{}

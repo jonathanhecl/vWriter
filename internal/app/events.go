@@ -42,6 +42,7 @@ func (a *App) handleEvents(gtx layout.Context) {
 	if a.clearMediaBtn.Clicked(gtx) {
 		a.engine.Store.Clear(a.session)
 		a.hasResult = false
+		a.autoSaveCurrentPreset()
 	}
 	if a.savePresetBtn.Clicked(gtx) {
 		a.savingPreset = true
@@ -91,6 +92,7 @@ func (a *App) handleEvents(gtx layout.Context) {
 	}
 	if a.duration.Update(gtx) {
 		a.saveConfig()
+		a.autoSaveCurrentPreset()
 	}
 	for _, editor := range []*widget.Editor{&a.urlEditor, &a.briefEditor, &a.sysEditor} {
 		for {
@@ -100,6 +102,7 @@ func (a *App) handleEvents(gtx layout.Context) {
 			}
 			if _, changed := event.(widget.ChangeEvent); changed {
 				a.saveConfig()
+				a.autoSaveCurrentPreset()
 			}
 		}
 	}
