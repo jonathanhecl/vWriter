@@ -158,7 +158,10 @@ func (a *App) layoutPresetsSection(gtx layout.Context) layout.Dimensions {
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.iconButton(gtx, &a.deletePresetBtn, "🗑", a.presetIndex >= 0)
+							if a.presetIndex >= 0 {
+								return a.smallButton(gtx, &a.deletePresetBtn, "Delete")
+							}
+							return layout.Dimensions{}
 						}),
 					)
 				})

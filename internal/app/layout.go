@@ -276,29 +276,46 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 				if !generating {
 					return layout.Dimensions{}
 				}
-				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Loader(a.theme).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							text := phaseLabel(phase)
-							if phase == engine.PhaseGenerating && tokens > 0 {
-								text = fmt.Sprintf("%s · %d tokens", text, tokens)
-							}
-							l := material.Label(a.theme, 13, text)
-							l.Color = colorTextDim
-							return l.Layout(gtx)
+				return layout.Background{}.Layout(gtx,
+					func(gtx layout.Context) layout.Dimensions {
+						bordered(gtx, 6, colorSurface, colorBorder)
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					},
+					func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: 6, Bottom: 6, Left: 10, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									loaderGtx := gtx
+									loaderGtx.Constraints.Max = image.Pt(gtx.Dp(16), gtx.Dp(16))
+									loaderGtx.Constraints.Min = loaderGtx.Constraints.Max
+									return material.Loader(a.theme).Layout(loaderGtx)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										text := phaseLabel(phase)
+										if phase == engine.PhaseGenerating && tokens > 0 {
+											text = fmt.Sprintf("%s · %d tokens", text, tokens)
+										}
+										l := material.Label(a.theme, 12, text)
+										l.Color = colorText
+										return l.Layout(gtx)
+									})
+								}),
+							)
 						})
-					}),
+					},
 				)
 			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, 0)}
+			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if generating {
-					return a.dangerButton(gtx, &a.cancelBtn, "Cancel")
-				}
-				return a.primaryButton(gtx, &a.generateBtn, "Generate prompt")
+				return layout.Inset{Left: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					if generating {
+						return a.dangerButton(gtx, &a.cancelBtn, "Cancel")
+					}
+					return a.primaryButton(gtx, &a.generateBtn, "Generate prompt")
+				})
 			}),
 		)
 	})
@@ -373,12 +390,17 @@ func (a *App) primaryButton(gtx layout.Context, btn *widget.Clickable, label str
 	b := material.Button(a.theme, btn, label)
 	b.Background = colorAccent
 	b.TextSize = 13
+	b.Inset = layout.Inset{Top: 8, Bottom: 8, Left: 16, Right: 16}
+	b.CornerRadius = unit.Dp(6)
 	return b.Layout(gtx)
 }
 
 func (a *App) dangerButton(gtx layout.Context, btn *widget.Clickable, label string) layout.Dimensions {
 	b := material.Button(a.theme, btn, label)
 	b.Background = colorDanger
+	b.TextSize = 13
+	b.Inset = layout.Inset{Top: 8, Bottom: 8, Left: 16, Right: 16}
+	b.CornerRadius = unit.Dp(6)
 	return b.Layout(gtx)
 }
 
