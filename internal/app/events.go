@@ -13,6 +13,9 @@ func (a *App) handleEvents(gtx layout.Context) {
 	if a.refreshBtn.Clicked(gtx) {
 		a.refreshModels()
 	}
+	if a.addFileBtn.Clicked(gtx) {
+		a.addFile()
+	}
 	if a.addMediaBtn.Clicked(gtx) {
 		a.addMedia()
 	}

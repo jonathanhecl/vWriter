@@ -60,7 +60,12 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.smallButton(gtx, &a.addMediaBtn, "Add media")
+						return layout.Inset{Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.smallButton(gtx, &a.addFileBtn, "Add file")
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.smallButton(gtx, &a.addMediaBtn, "Add multiple")
 					}),
 				)
 			}),

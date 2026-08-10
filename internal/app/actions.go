@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -95,26 +96,48 @@ func (a *App) selectedModel() string {
 	return ""
 }
 
-// addMedia opens the native file picker and registers the chosen files.
-func (a *App) addMedia() {
+// mediaExtensions lists supported reference file extensions.
+var mediaExtensions = []string{
+	".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff",
+	".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v",
+	".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac", ".opus",
+}
+
+// addFile opens a single-file picker dialog and registers the selected file.
+func (a *App) addFile() {
 	go func() {
-		exts := []string{
-			".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff",
-			".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v",
-			".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac", ".opus",
+		single, err := a.explorer.ChooseFile(mediaExtensions...)
+		if err != nil || single == nil {
+			return // user cancelled or closed dialog
 		}
-		files, err := a.explorer.ChooseFiles(exts...)
-		if err != nil || len(files) == 0 {
-			// Fallback for single file selection if ChooseFiles returns 0 files
-			single, singleErr := a.explorer.ChooseFile(exts...)
-			if singleErr == nil && single != nil {
-				files = []io.ReadCloser{single}
-			}
-		}
-		if len(files) == 0 {
+		path := filePath(single)
+		single.Close()
+		if path == "" {
+			a.mu.Lock()
+			a.toasts = append(a.toasts, toastMsg{text: "Could not resolve file path.", isError: true})
+			a.mu.Unlock()
 			return
 		}
+		if _, err := a.engine.Store.Add(a.session, path); err != nil {
+			a.mu.Lock()
+			a.toasts = append(a.toasts, toastMsg{text: errorText(err), details: errorDetails(err), isError: true})
+			a.mu.Unlock()
+		}
+		a.window.Invalidate()
+	}()
+}
+
+// addMedia opens a multi-file picker dialog and registers all chosen files.
+func (a *App) addMedia() {
+	go func() {
+		files, err := a.explorer.ChooseFiles(mediaExtensions...)
+		if err != nil || len(files) == 0 {
+			return // user cancelled or no files selected
+		}
 		for _, file := range files {
+			if file == nil {
+				continue
+			}
 			path := filePath(file)
 			file.Close()
 			if path == "" {
@@ -158,17 +181,15 @@ func filePath(file io.ReadCloser) string {
 		return ""
 	}
 
-	// Handle file:// prefix
-	if strings.HasPrefix(raw, "file://") || strings.HasPrefix(raw, "file:") {
-		parsed, err := url.Parse(raw)
-		if err == nil && (parsed.Scheme == "file" || parsed.Scheme == "") {
-			raw = parsed.Path
-		} else {
-			raw = strings.TrimPrefix(strings.TrimPrefix(raw, "file://"), "file:")
-		}
+	// Strip file:// or file: prefix safely without losing drive letters (e.g. file://C:/...)
+	for strings.HasPrefix(raw, "file://") {
+		raw = strings.TrimPrefix(raw, "file://")
+	}
+	if strings.HasPrefix(raw, "file:") {
+		raw = strings.TrimPrefix(raw, "file:")
 	}
 
-	// Unescape URL encoded characters (e.g. %20 -> space)
+	// Unescape URL encoded characters (e.g. %20 -> space, %C3%B1 -> ñ)
 	if unescaped, err := url.PathUnescape(raw); err == nil {
 		raw = unescaped
 	}

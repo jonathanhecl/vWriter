@@ -82,6 +82,7 @@ type App struct {
 	refineBtn       widget.Clickable
 	rewriteBtn      widget.Clickable
 	restoreBtn      widget.Clickable
+	addFileBtn      widget.Clickable
 	addMediaBtn     widget.Clickable
 	clearMediaBtn   widget.Clickable
 	connectBtn      widget.Clickable
