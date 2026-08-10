@@ -101,7 +101,7 @@ type App struct {
 	unloadBtn       widget.Clickable
 	mediaList       layout.List
 	outputList      layout.List
-	leftList        layout.List
+	leftList        widget.List
 	assetWidgetSet  map[string]*assetWidgets
 	modalStateSet   *modalState
 	modalFrameIndex int

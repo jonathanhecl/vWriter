@@ -7,8 +7,6 @@ import (
 	_ "image/png"
 	"os"
 
-	"gioui.org/gesture"
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
@@ -162,43 +160,6 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 				totalItems := len(filteredAssets) + 1
 				a.mediaList.Axis = layout.Horizontal
 
-				// Process Drag gestures on horizontal gallery
-				for {
-					event, ok := a.mediaDrag.Update(gtx.Metric, gtx.Source, gesture.Horizontal)
-					if !ok {
-						break
-					}
-					if event.Kind == gesture.DragPosition {
-						if event.Delta < -8 && a.mediaList.Position.First < totalItems-1 {
-							a.mediaList.Position.First++
-							a.window.Invalidate()
-						} else if event.Delta > 8 && a.mediaList.Position.First > 0 {
-							a.mediaList.Position.First--
-							a.window.Invalidate()
-						}
-					}
-				}
-
-				// Process Mouse Wheel Pointer events on horizontal gallery
-				for {
-					event, ok := gtx.Event(pointer.Filter{
-						Target: &a.mediaList,
-						Kinds:  pointer.Scroll,
-					})
-					if !ok {
-						break
-					}
-					if ev, ok := event.(pointer.Event); ok {
-						if (ev.Scroll.Y > 0 || ev.Scroll.X > 0) && a.mediaList.Position.First < totalItems-1 {
-							a.mediaList.Position.First++
-							a.window.Invalidate()
-						} else if (ev.Scroll.Y < 0 || ev.Scroll.X < 0) && a.mediaList.Position.First > 0 {
-							a.mediaList.Position.First--
-							a.window.Invalidate()
-						}
-					}
-				}
-
 				hGtx := gtx
 				cardHeight := gtx.Dp(135)
 				hGtx.Constraints.Min.Y = cardHeight
@@ -206,16 +167,14 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.mediaDrag.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.mediaList.Layout(hGtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
-								if index < len(filteredAssets) {
-									asset := filteredAssets[index]
-									return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-										return a.layoutAssetCard(gtx, asset, index, len(filteredAssets))
-									})
-								}
-								return a.layoutAddMediaCard(gtx)
-							})
+						return a.mediaList.Layout(hGtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
+							if index < len(filteredAssets) {
+								asset := filteredAssets[index]
+								return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return a.layoutAssetCard(gtx, asset, index, len(filteredAssets))
+								})
+							}
+							return a.layoutAddMediaCard(gtx)
 						})
 					}),
 					// Interactive Horizontal Scrollbar Track & Thumb
@@ -243,19 +202,13 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 								thumbLeft = trackWidth - thumbWidth
 							}
 
-							for {
-								click, ok := a.scrollbarClickable.Update(gtx)
-								if !ok {
-									break
+							if a.scrollbarClickable.Clicked(gtx) {
+								if a.mediaList.Position.First > 0 {
+									a.mediaList.Position.First--
+								} else {
+									a.mediaList.Position.First++
 								}
-								if click.Kind == widget.ClickKindPress {
-									if click.Position.X < float32(thumbLeft) && a.mediaList.Position.First > 0 {
-										a.mediaList.Position.First--
-									} else if click.Position.X > float32(thumbLeft+thumbWidth) && a.mediaList.Position.First < totalItems-1 {
-										a.mediaList.Position.First++
-									}
-									a.window.Invalidate()
-								}
+								a.window.Invalidate()
 							}
 
 							return a.scrollbarClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

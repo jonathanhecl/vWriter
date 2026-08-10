@@ -17,8 +17,10 @@ import (
 // layoutInput renders the left column: presets, media, duration, aspect ratio, brief,
 // advanced runtime, and system prompt.
 func (a *App) layoutInput(gtx layout.Context) layout.Dimensions {
-	return layout.Inset{Top: 12, Bottom: 8, Left: 18, Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return a.leftList.Layout(gtx, 12, func(gtx layout.Context, index int) layout.Dimensions {
+	return layout.Inset{Top: 12, Bottom: 8, Left: 18, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		list := material.List(a.theme, &a.leftList)
+		list.Indicator.Color = colorAccent
+		return list.Layout(gtx, 6, func(gtx layout.Context, index int) layout.Dimensions {
 			switch index {
 			case 0:
 				return a.layoutPresetsSection(gtx)
@@ -32,10 +34,6 @@ func (a *App) layoutInput(gtx layout.Context) layout.Dimensions {
 				return a.layoutAdvanced(gtx)
 			case 5:
 				return a.layoutSystemPrompt(gtx)
-			case 6:
-				return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{}
-				})
 			}
 			return layout.Dimensions{}
 		})
