@@ -46,6 +46,9 @@ func (a *App) handleEvents(gtx layout.Context) {
 	if a.unloadBtn.Clicked(gtx) {
 		a.unloadModel()
 	}
+	if a.advOpen.Update(gtx) || a.sysOpen.Update(gtx) {
+		a.window.Invalidate()
+	}
 	if a.thinking.Update(gtx) || a.keepLoaded.Update(gtx) {
 		a.saveConfig()
 	}

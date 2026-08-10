@@ -146,7 +146,7 @@ func (d *dropdown) layoutMenu(gtx layout.Context, th *material.Theme, options []
 				return d.list.Layout(gtx, len(options), func(gtx layout.Context, index int) layout.Dimensions {
 					option := options[index]
 					return d.items[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.Label(th, 13, option)
 							if index == selected {
 								l.Color = colorAccent
@@ -159,6 +159,40 @@ func (d *dropdown) layoutMenu(gtx layout.Context, th *material.Theme, options []
 					})
 				})
 			})
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			if len(options) <= 5 {
+				return layout.Dimensions{}
+			}
+			total := float32(len(options))
+			first := float32(d.list.Position.First)
+			count := float32(d.list.Position.Count)
+			if count == 0 {
+				count = 5
+			}
+			topRatio := first / total
+			heightRatio := count / total
+			if heightRatio >= 1.0 {
+				return layout.Dimensions{}
+			}
+
+			trackHeight := gtx.Constraints.Max.Y
+			if trackHeight <= 0 {
+				return layout.Dimensions{}
+			}
+			thumbTop := int(topRatio * float32(trackHeight))
+			thumbHeight := max(int(heightRatio*float32(trackHeight)), gtx.Dp(24))
+			if thumbTop+thumbHeight > trackHeight {
+				thumbTop = trackHeight - thumbHeight
+			}
+
+			thumbOff := op.Offset(image.Pt(gtx.Constraints.Max.X-gtx.Dp(6), thumbTop)).Push(gtx.Ops)
+			bgGtx := gtx
+			bgGtx.Constraints.Min = image.Pt(gtx.Dp(4), thumbHeight)
+			bgGtx.Constraints.Max = bgGtx.Constraints.Min
+			fill(bgGtx, 2, colorTextDim)
+			thumbOff.Pop()
+			return layout.Dimensions{}
 		}),
 	)
 }
