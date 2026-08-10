@@ -432,6 +432,7 @@ func (a *App) loadPreset(index int) {
 	if p.Output != "" {
 		a.outputEditor.SetText(p.Output)
 		a.hasResult = true
+		a.highlightMode = true
 	} else {
 		a.outputEditor.SetText("")
 		a.hasResult = false

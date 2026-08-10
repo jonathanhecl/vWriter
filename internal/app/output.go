@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	"gioui.org/layout"
+	"gioui.org/text"
 	"gioui.org/widget/material"
-
-	"github.com/jonathanhecl/vWriter/internal/engine"
 )
 
 // layoutOutput renders the right column: the generated prompt editor, its
@@ -34,7 +33,13 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 				}
 				if a.highlightMode && a.hasResult {
 					return layout.Inset{Top: 10, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.layoutHighlightedOutput(gtx)
+						return card(gtx, 10, func(gtx layout.Context) layout.Dimensions {
+							return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.outputList.Layout(gtx, 1, func(gtx layout.Context, index int) layout.Dimensions {
+									return a.layoutHighlightedOutput(gtx)
+								})
+							})
+						})
 					})
 				}
 				return layout.Inset{Top: 10, Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -58,91 +63,71 @@ func (a *App) layoutOutputGenerating(gtx layout.Context, phase string, tokens in
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						loaderGtx := gtx
-						loaderGtx.Constraints.Min = image.Pt(gtx.Dp(36), gtx.Dp(36))
+						loaderGtx.Constraints.Min = image.Pt(gtx.Dp(24), gtx.Dp(24))
 						loaderGtx.Constraints.Max = loaderGtx.Constraints.Min
-						return material.Loader(a.theme).Layout(loaderGtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							l := material.Label(a.theme, 20, "Generating prompt…")
-							l.Color = colorText
-							return l.Layout(gtx)
-						})
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: 8, Bottom: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						text := phaseLabel(phase)
-						if phase == engine.PhaseGenerating && tokens > 0 {
-							text = fmt.Sprintf("%s · %d tokens", text, tokens)
-						}
-						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							l := material.Label(a.theme, 13, text)
-							l.Color = colorAccent
-							return l.Layout(gtx)
-						})
-					})
-				}),
-			)
-		})
-	})
-}
-
-// layoutOutputEmpty gives the empty workspace a clear next action instead of
-// presenting an inactive text field as the primary visual element.
-func (a *App) layoutOutputEmpty(gtx layout.Context) layout.Dimensions {
-	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Max.X = gtx.Dp(440)
-		return card(gtx, 22, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(a.theme, 30, "✦")
+						l := material.Loader(a.theme)
 						l.Color = colorAccent
-						return l.Layout(gtx)
+						return l.Layout(loaderGtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							l := material.Label(a.theme, 20, "Your prompt workspace")
-							l.Color = colorText
-							return l.Layout(gtx)
-						})
+						l := material.Label(a.theme, 15, "Generating video prompt...")
+						l.Color = colorText
+						return l.Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: 7, Bottom: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return bodyText(gtx, a.theme, "Add references, define the direction, then generate.")
-						})
+					if phase == "" {
+						return layout.Dimensions{}
+					}
+					return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(a.theme, 13, phase)
+						l.Color = colorTextDim
+						return l.Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.emptySteps(gtx)
+					if tokens <= 0 {
+						return layout.Dimensions{}
+					}
+					return layout.Inset{Top: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(a.theme, 12, fmt.Sprintf("%d tokens generated", tokens))
+						l.Color = colorAccent
+						return l.Layout(gtx)
+					})
 				}),
 			)
 		})
 	})
 }
 
-func (a *App) emptySteps(gtx layout.Context) layout.Dimensions {
-	steps := []string{"01  References", "02  Direction", "03  Generate"}
-	return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return bodyText(gtx, a.theme, steps[0])
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return bodyText(gtx, a.theme, steps[1])
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return bodyText(gtx, a.theme, steps[2]) }),
-	)
+// layoutOutputEmpty renders an empty workspace placeholder when no prompt is available.
+func (a *App) layoutOutputEmpty(gtx layout.Context) layout.Dimensions {
+	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Max.X = gtx.Dp(420)
+		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				l := material.Label(a.theme, 26, "✨")
+				return l.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(a.theme, 16, "No prompt generated yet")
+					l.Color = colorText
+					return l.Layout(gtx)
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(a.theme, 13, "Add your media references and creative brief, then click Generate Prompt below.")
+					l.Color = colorTextDim
+					l.Alignment = text.Middle
+					return l.Layout(gtx)
+				})
+			}),
+		)
+	})
 }
 
 // layoutOutputHeader renders the output title, Modified badge, counts, and
@@ -198,16 +183,17 @@ func (a *App) layoutOutputHeader(gtx layout.Context) layout.Dimensions {
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.smallButton(gtx, &a.copyBtn, "Copy prompt")
+						return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.smallButton(gtx, &a.copyBtn, "Copy prompt")
+						})
 					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if a.highlightBtn.Clicked(gtx) {
 							a.highlightMode = !a.highlightMode
 						}
-						label := "Highlight off"
+						label := "Show"
 						if a.highlightMode {
-							label = "Highlight on"
+							label = "Edit"
 						}
 						return a.smallButton(gtx, &a.highlightBtn, label)
 					}),

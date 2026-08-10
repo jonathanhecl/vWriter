@@ -146,8 +146,9 @@ func Run(window *app.Window) error {
 		cfg:         cfg,
 		cfgPath:     config.DefaultPath(),
 		images:      map[string]image.Image{},
-		presetStore: presetStore,
-		presetIndex: -1,
+		presetStore:   presetStore,
+		presetIndex:   -1,
+		highlightMode: true,
 	}
 	a.session = newSessionID()
 	a.mediaList.Axis = layout.Vertical
@@ -225,6 +226,7 @@ func (a *App) applyAsync() {
 			a.outputEditor.SetText(res.Prompt)
 			a.lastAIMark = res.Prompt
 			a.hasResult = true
+			a.highlightMode = true
 			if res.RepairApplied {
 				a.toasts = append(a.toasts, toastMsg{text: "One automatic format repair was applied."})
 			}
