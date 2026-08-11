@@ -215,26 +215,53 @@ func (e *Engine) Generate(params GenerateParams) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	plan, err := prompt.PlanContext(assembled, params.ContextProfile, params.Thinking)
+	return e.run(ctx, client, assembled, runParams{
+		Model:           params.Model,
+		ContextProfile:  params.ContextProfile,
+		Thinking:        params.Thinking,
+		KeepModelLoaded: params.KeepModelLoaded,
+		Seed:            params.Seed,
+		OnPhase:         params.OnPhase,
+		OnProgress:      params.OnProgress,
+		SessionID:       params.SessionID,
+		LogEvent:        "generate_succeeded",
+	}, started)
+}
+
+// runParams carries the execution options shared by the generation pipeline.
+type runParams struct {
+	Model           string
+	ContextProfile  string
+	Thinking        bool
+	KeepModelLoaded bool
+	Seed            *int
+	OnPhase         func(string)
+	OnProgress      func(int)
+	SessionID       string
+	LogEvent        string
+}
+
+// run executes the shared generation pipeline: context planning, chat request
+// building (with media attached), chat, audit, and one narrow repair pass.
+func (e *Engine) run(ctx context.Context, client *ollama.Client, assembled *prompt.Assembled, rp runParams, started time.Time) (*Result, error) {
+	plan, err := prompt.PlanContext(assembled, rp.ContextProfile, rp.Thinking)
 	if err != nil {
 		return nil, err
 	}
-
-	e.setPhase(PhaseProcessingMedia, params.OnPhase)
-	request, err := buildChatRequest(params.Model, assembled, plan, params.Thinking, params.Seed)
+	e.setPhase(PhaseProcessingMedia, rp.OnPhase)
+	request, err := buildChatRequest(rp.Model, assembled, plan, rp.Thinking, rp.Seed)
 	if err != nil {
 		return nil, err
 	}
-
-	e.setPhase(PhaseGenerating, params.OnPhase)
-	chat, err := client.Chat(ctx, request, progressCallback(params.OnProgress))
+	e.setPhase(PhaseGenerating, rp.OnPhase)
+	chat, err := client.Chat(ctx, request, progressCallback(rp.OnProgress))
 	if err != nil {
 		return nil, err
 	}
 	fallbackUsed := false
-	if params.Thinking && (chat.DoneReason == "length" || chat.Content == "") {
+	if rp.Thinking && (chat.DoneReason == "length" || chat.Content == "") {
 		fallbackUsed = true
-		chat, err = client.Chat(ctx, buildFallbackRequest(request), progressCallback(params.OnProgress))
+		chat, err = client.Chat(ctx, buildFallbackRequest(request), progressCallback(rp.OnProgress))
 		if err != nil {
 			return nil, err
 		}
@@ -244,19 +271,84 @@ func (e *Engine) Generate(params GenerateParams) (*Result, error) {
 		return nil, &Error{Code: "EMPTY_GENERATION", Message: "The model did not produce a final prompt."}
 	}
 
-	result := e.runAuditAndRepair(ctx, client, params.Model, assembled, plan, text, params.OnPhase, params.OnProgress)
+	result := e.runAuditAndRepair(ctx, client, rp.Model, assembled, plan, text, rp.OnPhase, rp.OnProgress)
 	result.ThinkingFallback = fallbackUsed
 	e.finishMetrics(result, chat, started)
 
 	e.mu.Lock()
-	e.generationCache[params.SessionID] = result.Prompt
+	e.generationCache[rp.SessionID] = result.Prompt
 	e.mu.Unlock()
-	e.maybeUnload(client, params.Model, params.KeepModelLoaded)
-	config.LogEvent("generate_succeeded", map[string]any{
-		"model": params.Model, "total_seconds": result.TotalSeconds,
+	e.maybeUnload(client, rp.Model, rp.KeepModelLoaded)
+	config.LogEvent(rp.LogEvent, map[string]any{
+		"model": rp.Model, "total_seconds": result.TotalSeconds,
 		"output_tokens": result.OutputTokens, "repair_applied": result.RepairApplied,
 	})
 	return result, nil
+}
+
+// ContinuationParams drives one GenerateContinuation call: the next part of a
+// multi-part story.
+type ContinuationParams struct {
+	SessionID              string
+	Model                  string
+	PartBrief              string
+	DurationSeconds        float64
+	AspectRatio            string
+	PreviousPrompt         string
+	PreviousEnding         string
+	ContinuationFrameLabel string
+	ContextProfile         string
+	Thinking               bool
+	KeepModelLoaded        bool
+	Seed                   *int
+	SystemPromptOverride   *string
+	OnPhase                func(phase string)
+	OnProgress             func(tokens int)
+}
+
+// GenerateContinuation generates the next part of a multi-part story as a
+// video continuation of the previous part: the same reference media is
+// re-attached and the previous ending is injected as a virtual first frame.
+func (e *Engine) GenerateContinuation(params ContinuationParams) (*Result, error) {
+	client, err := e.Client()
+	if err != nil {
+		return nil, err
+	}
+	ctx, end, err := e.begin()
+	if err != nil {
+		return nil, err
+	}
+	defer end()
+	started := time.Now()
+
+	e.setPhase(PhaseLoadingModel, params.OnPhase)
+	if _, err := client.RequireVision(ctx, params.Model); err != nil {
+		return nil, err
+	}
+	assembled, err := prompt.AssembleContinuation(prompt.ContinuationRequest{
+		Manifest:               e.Store.Manifest(params.SessionID),
+		PartBrief:              params.PartBrief,
+		DurationSeconds:        params.DurationSeconds,
+		AspectRatio:            params.AspectRatio,
+		PreviousPrompt:         params.PreviousPrompt,
+		PreviousEnding:         params.PreviousEnding,
+		ContinuationFrameLabel: params.ContinuationFrameLabel,
+		SystemPromptOverride:   params.SystemPromptOverride,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return e.run(ctx, client, assembled, runParams{
+		Model:           params.Model,
+		ContextProfile:  params.ContextProfile,
+		Thinking:        params.Thinking,
+		KeepModelLoaded: params.KeepModelLoaded,
+		Seed:            params.Seed,
+		OnPhase:         params.OnPhase,
+		OnProgress:      params.OnProgress,
+		SessionID:       params.SessionID,
+		LogEvent:        "extend_succeeded",
+	}, started)
 }
 
 // Refine rewrites the current prompt with a revision instruction, without

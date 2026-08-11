@@ -84,6 +84,19 @@ type RefineRequest struct {
 	SystemPromptOverride *string
 }
 
+// ContinuationRequest is the input to AssembleContinuation: the next part of
+// a multi-part story, generated as a video continuation of the previous part.
+type ContinuationRequest struct {
+	Manifest               media.Manifest
+	PartBrief              string
+	DurationSeconds        float64
+	AspectRatio            string
+	PreviousPrompt         string
+	PreviousEnding         string
+	ContinuationFrameLabel string
+	SystemPromptOverride   *string
+}
+
 var explicitEditPattern = regexp.MustCompile(`(?is)\b(?:edit(?:ing)?|continue|continuation|extend|remix|re-cut)\b.{0,40}\bvideo\b|\bvideo\s+editing\b`)
 
 // finalContract is the closing instruction block of the user message. It
@@ -143,8 +156,10 @@ func guideMessages(systemPrompt string) (messages []Message, guideMeta, baseMeta
 
 // declaredReferences splits the manifest into declared references (audio is
 // always declared; visuals when analysis is requested) and eligible visual
-// model inputs.
-func declaredReferences(manifest media.Manifest) (declared []*media.Asset, inputs []MediaInput) {
+// model inputs. withAnchors controls whether first/last frame image anchors
+// are propagated to the model bindings; continuations suppress them because
+// their opening is a virtual continuation frame.
+func declaredReferences(manifest media.Manifest, withAnchors bool) (declared []*media.Asset, inputs []MediaInput) {
 	for _, asset := range manifest.Assets {
 		if asset.Type != media.Audio && !asset.AnalysisRequested {
 			continue
@@ -159,7 +174,7 @@ func declaredReferences(manifest media.Manifest) (declared []*media.Asset, input
 			Type:      string(asset.Type),
 			Frames:    asset.Frames,
 		}
-		if asset.Role == media.RoleFirstFrame || asset.Role == media.RoleLastFrame {
+		if withAnchors && (asset.Role == media.RoleFirstFrame || asset.Role == media.RoleLastFrame) {
 			input.Boundary = asset.Role
 		}
 		if asset.Type == media.Image {
@@ -187,6 +202,19 @@ func referenceManifestText(declared []*media.Asset) string {
 	return strings.Join(lines, "\n")
 }
 
+// continuationManifestText renders the manifest without the first/last frame
+// MUST markers; the opening anchor of a continuation is the virtual frame.
+func continuationManifestText(declared []*media.Asset) string {
+	if len(declared) == 0 {
+		return "None"
+	}
+	lines := make([]string, len(declared))
+	for index, asset := range declared {
+		lines[index] = media.ReferenceLineWithLinkedSansAnchors(asset, declared)
+	}
+	return strings.Join(lines, "\n")
+}
+
 // AssembleRequest validates and assembles a fresh full-reference generation.
 func AssembleRequest(req GenerateRequest) (*Assembled, error) {
 	brief := trimSpace(req.CreativeBrief)
@@ -210,7 +238,7 @@ func AssembleRequest(req GenerateRequest) (*Assembled, error) {
 		return nil, err
 	}
 
-	declared, inputs := declaredReferences(req.Manifest)
+	declared, inputs := declaredReferences(req.Manifest, true)
 	userContent := fmt.Sprintf(
 		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\n\n"+
 			"Reference manifest (audio is not analyzed by the local model; derive its copy/reference role only from the user's words and do not invent its content):\n%s\n\n"+
@@ -287,6 +315,78 @@ func AssembleRefinement(req RefineRequest) (*Assembled, error) {
 			CurrentPrompt: current,
 			Instruction:   instruction,
 			Manifest:      req.Manifest,
+		},
+	}, nil
+}
+
+// AssembleContinuation validates and assembles the next part of a multi-part
+// story. The same reference media is re-attached and the previous part's
+// ending state is injected as a virtual <Picture X> first frame, so each
+// extended part opens exactly where the previous one ended.
+func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
+	brief := trimSpace(req.PartBrief)
+	if brief == "" {
+		return nil, &Error{Code: "INVALID_REQUEST", Message: "A description of what happens in this part is required.", Details: map[string]string{"field": "part_brief"}}
+	}
+	if len(brief) > maxBriefChars {
+		return nil, &Error{Code: "BRIEF_TOO_LONG", Message: "Part brief cannot exceed 2,000 characters."}
+	}
+	if !AspectRatios[req.AspectRatio] {
+		return nil, &Error{Code: "INVALID_ASPECT_RATIO", Message: "The selected aspect ratio is not supported."}
+	}
+	if req.DurationSeconds <= 0 || req.DurationSeconds > 20 {
+		return nil, &Error{Code: "INVALID_DURATION", Message: "Duration must be between 1 and 20 seconds."}
+	}
+	if !req.Manifest.Valid {
+		return nil, &Error{Code: "INVALID_MEDIA_MANIFEST", Message: "The media manifest is not valid.", Details: req.Manifest.Violations}
+	}
+	previous := trimSpace(req.PreviousPrompt)
+	ending := trimSpace(req.PreviousEnding)
+	frame := trimSpace(req.ContinuationFrameLabel)
+	if previous == "" {
+		return nil, &Error{Code: "INVALID_REQUEST", Message: "The previous part prompt is required to continue a story.", Details: map[string]string{"field": "previous_prompt"}}
+	}
+	if ending == "" {
+		return nil, &Error{Code: "INVALID_REQUEST", Message: "The previous part's ending state could not be extracted.", Details: map[string]string{"field": "previous_ending"}}
+	}
+	if frame == "" {
+		return nil, &Error{Code: "INVALID_REQUEST", Message: "A continuation frame label is required.", Details: map[string]string{"field": "continuation_frame_label"}}
+	}
+	systemPrompt, custom, err := ResolveSystemPrompt(req.SystemPromptOverride)
+	if err != nil {
+		return nil, err
+	}
+
+	declared, inputs := declaredReferences(req.Manifest, false)
+	contract := "This part is a new, independent video of the same duration: timestamps restart at 00:00 " +
+		"and must remain within the duration. It MUST open with the continuation frame and develop the " +
+		"story forward from that exact state. " +
+		finalContract(brief+" continue the story as a video continuation of the previous part.")
+	userContent := fmt.Sprintf(
+		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\nPart: video continuation of a multi-part story\n\n"+
+			"Reference manifest (real media assets, re-attached for consistency):\n%s\n\n"+
+			"Continuation frame — this part MUST open with exactly this state. It is a virtual frame; no image is attached:\n%s\n%s\n\n"+
+			"Previous part (context only; keep subjects, scene, style, and continuity consistent):\n%s\n\n"+
+			"Creative brief for this part:\n%s\n\n%s",
+		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
+		frame, ending, previous, brief, contract,
+	)
+	messages, guide, base, err := guideMessages(systemPrompt)
+	if err != nil {
+		return nil, err
+	}
+	return &Assembled{
+		SchemaVersion: 1,
+		Guide:         *guide,
+		Supporting:    base,
+		SystemPrompt:  SystemPrompt{Custom: custom, Content: systemPrompt},
+		Messages:      append(messages, Message{Role: "user", Content: userContent}),
+		MediaInputs:   inputs,
+		Input: AssembledInput{
+			DurationSeconds: req.DurationSeconds,
+			AspectRatio:     req.AspectRatio,
+			CreativeBrief:   brief,
+			Manifest:        req.Manifest,
 		},
 	}, nil
 }

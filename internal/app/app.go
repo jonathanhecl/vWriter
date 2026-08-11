@@ -5,6 +5,7 @@ package app
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"image"
 	"strings"
 	"sync"
@@ -62,36 +63,36 @@ type App struct {
 	images        map[string]image.Image // asset preview path -> decoded
 
 	// Widgets (UI goroutine only).
-	urlEditor       widget.Editor
-	modelDropdown   dropdown
-	briefEditor     widget.Editor
-	duration        widget.Float
-	aspectDropdown  dropdown
-	aspectIndex     int
-	contextDropdown dropdown
-	contextIndex    int
-	thinking        widget.Bool
-	keepLoaded      widget.Bool
-	sysEditor       widget.Editor
-	sysOpen         widget.Bool
-	advOpen         widget.Bool
-	outputEditor    widget.Editor
-	refineEditor    widget.Editor
-	refineOpen      bool
-	generateBtn     widget.Clickable
-	cancelBtn       widget.Clickable
-	copyBtn         widget.Clickable
-	refineBtn       widget.Clickable
-	rewriteBtn      widget.Clickable
-	restoreBtn      widget.Clickable
-	addFileBtn      widget.Clickable
-	addMediaBtn     widget.Clickable
-	addMediaCardBtn widget.Clickable
-	clearMediaBtn   widget.Clickable
-	filterAllBtn    widget.Clickable
-	filterImgBtn    widget.Clickable
-	filterVidBtn    widget.Clickable
-	filterAudBtn    widget.Clickable
+	urlEditor          widget.Editor
+	modelDropdown      dropdown
+	briefEditor        widget.Editor
+	duration           widget.Float
+	aspectDropdown     dropdown
+	aspectIndex        int
+	contextDropdown    dropdown
+	contextIndex       int
+	thinking           widget.Bool
+	keepLoaded         widget.Bool
+	sysEditor          widget.Editor
+	sysOpen            widget.Bool
+	advOpen            widget.Bool
+	outputEditor       widget.Editor
+	refineEditor       widget.Editor
+	refineOpen         bool
+	generateBtn        widget.Clickable
+	cancelBtn          widget.Clickable
+	copyBtn            widget.Clickable
+	refineBtn          widget.Clickable
+	rewriteBtn         widget.Clickable
+	restoreBtn         widget.Clickable
+	addFileBtn         widget.Clickable
+	addMediaBtn        widget.Clickable
+	addMediaCardBtn    widget.Clickable
+	clearMediaBtn      widget.Clickable
+	filterAllBtn       widget.Clickable
+	filterImgBtn       widget.Clickable
+	filterVidBtn       widget.Clickable
+	filterAudBtn       widget.Clickable
 	scrollLeftBtn      widget.Clickable
 	scrollRightBtn     widget.Clickable
 	scrollbarClickable widget.Clickable
@@ -105,11 +106,11 @@ type App struct {
 	mediaList          layout.List
 	filterList         layout.List
 	outputList         widget.List
-	leftList        widget.List
-	assetWidgetSet  map[string]*assetWidgets
-	modalStateSet   *modalState
-	modalFrameIndex int
-	toastClicks     []toastClick
+	leftList           widget.List
+	assetWidgetSet     map[string]*assetWidgets
+	modalStateSet      *modalState
+	modalFrameIndex    int
+	toastClicks        []toastClick
 
 	presetStore      *config.PresetStore
 	presetDropdown   dropdown
@@ -130,6 +131,30 @@ type App struct {
 	highlightMode  bool           // true = render highlighted view instead of plain editor
 	highlightState highlightState // richtext state for highlighted output
 	highlightBtn   widget.Clickable
+
+	// Multi-part story state (UI goroutine only).
+	storyParts []storyPart
+	partIndex  int
+	// pendingAction records which flow produced a pending result so applyAsync
+	// knows where to write it: "generate", "extend", "regenerate", or "refine".
+	pendingAction string
+	pendingIndex  int
+	pendingBrief  string
+
+	extendEditor  widget.Editor
+	extendOpen    bool
+	extendBtn     widget.Clickable
+	genExtendBtn  widget.Clickable
+	regenerateBtn widget.Clickable
+	copyAllBtn    widget.Clickable
+	partChips     []widget.Clickable
+}
+
+// storyPart is one prompt of a multi-part story. Brief is the idea the user
+// wrote for that part (empty for the first part, which uses the main brief).
+type storyPart struct {
+	Prompt string
+	Brief  string
 }
 
 // Run starts the window event loop.
@@ -234,15 +259,7 @@ func (a *App) applyAsync() {
 		if a.pendingErr != nil {
 			a.toasts = append(a.toasts, toastMsg{text: errorText(a.pendingErr), details: errorDetails(a.pendingErr), isError: true})
 		} else {
-			res := a.pendingResult
-			a.originalOut = res.Prompt
-			a.outputEditor.SetText(res.Prompt)
-			a.lastAIMark = res.Prompt
-			a.hasResult = true
-			a.highlightMode = true
-			if res.RepairApplied {
-				a.toasts = append(a.toasts, toastMsg{text: "One automatic format repair was applied."})
-			}
+			a.applyResult(a.pendingResult)
 		}
 		a.pendingResult = nil
 		a.pendingErr = nil
@@ -252,6 +269,39 @@ func (a *App) applyAsync() {
 	if a.dirtyOutput {
 		a.dirtyOutput = false
 	}
+}
+
+// applyResult writes a finished generation into the editor and the multi-part
+// story according to the flow that produced it. Callers hold a.mu.
+func (a *App) applyResult(res *engine.Result) {
+	switch a.pendingAction {
+	case "extend":
+		a.storyParts = append(a.storyParts, storyPart{Prompt: res.Prompt, Brief: a.pendingBrief})
+		a.partIndex = len(a.storyParts) - 1
+	case "regenerate":
+		if a.pendingIndex >= 0 && a.pendingIndex < len(a.storyParts) {
+			a.storyParts[a.pendingIndex].Prompt = res.Prompt
+			a.storyParts = a.storyParts[:a.pendingIndex+1]
+			a.partIndex = a.pendingIndex
+		}
+	case "refine":
+		if a.pendingIndex >= 0 && a.pendingIndex < len(a.storyParts) {
+			a.storyParts[a.pendingIndex].Prompt = res.Prompt
+			a.partIndex = a.pendingIndex
+		}
+	default: // "generate"
+		a.storyParts = []storyPart{{Prompt: res.Prompt, Brief: ""}}
+		a.partIndex = 0
+	}
+	a.originalOut = res.Prompt
+	a.outputEditor.SetText(res.Prompt)
+	a.lastAIMark = res.Prompt
+	a.hasResult = true
+	a.highlightMode = true
+	if res.RepairApplied {
+		a.toasts = append(a.toasts, toastMsg{text: "One automatic format repair was applied."})
+	}
+	a.autoSaveCurrentPreset()
 }
 
 // saveConfig persists the current settings.
@@ -267,15 +317,23 @@ func (a *App) saveConfig() {
 	_ = a.cfg.Save(a.cfgPath)
 }
 
-// copyOutput schedules a clipboard write of the current output.
+// copyOutput schedules a clipboard write of the selected story part (or the
+// current editor text when no story is loaded).
 func (a *App) copyOutput(gtx layout.Context) {
 	text := a.outputEditor.Text()
+	label := "Prompt"
+	if a.partIndex >= 0 && a.partIndex < len(a.storyParts) {
+		text = a.storyParts[a.partIndex].Prompt
+		label = fmt.Sprintf("Part %d", a.partIndex+1)
+	}
 	if text == "" {
 		return
 	}
 	gtx.Execute(clipboard.WriteCmd{Data: nopCloser{strings.NewReader(text)}})
-	a.toasts = append(a.toasts, toastMsg{text: "Prompt copied to the clipboard."})
-	a.window.Invalidate()
+	a.toasts = append(a.toasts, toastMsg{text: label + " copied to the clipboard."})
+	if a.window != nil {
+		a.window.Invalidate()
+	}
 }
 
 func newSessionID() string {

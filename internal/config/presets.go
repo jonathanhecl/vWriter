@@ -21,6 +21,12 @@ type PresetAsset struct {
 	LinkedAssetFilename string `json:"linked_asset_filename,omitempty"` // for audio voice: filename of the linked image
 }
 
+// PresetPart is one prompt of a multi-part story stored in a preset.
+type PresetPart struct {
+	Prompt string `json:"prompt"`
+	Brief  string `json:"brief,omitempty"` // the idea the user wrote for this part
+}
+
 // Preset represents a saved creative prompt template.
 type Preset struct {
 	ID           string        `json:"id"`
@@ -30,6 +36,7 @@ type Preset struct {
 	AspectRatio  string        `json:"aspect_ratio"`
 	SystemPrompt string        `json:"system_prompt,omitempty"`
 	Output       string        `json:"output,omitempty"`
+	Parts        []PresetPart  `json:"parts,omitempty"`
 	Assets       []PresetAsset `json:"assets,omitempty"`
 	CreatedAt    string        `json:"created_at"`
 }
@@ -132,7 +139,7 @@ func (s *PresetStore) List() []*Preset {
 }
 
 // AddOrUpdate saves a preset. If a preset with the same Name exists, it updates it.
-func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio, systemPrompt, output string, assets []PresetAsset) (*Preset, error) {
+func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio, systemPrompt, output string, assets []PresetAsset, parts []PresetPart) (*Preset, error) {
 	if name == "" {
 		name = "Untitled Template"
 	}
@@ -144,6 +151,7 @@ func (s *PresetStore) AddOrUpdate(name, brief string, duration int, aspectRatio,
 		AspectRatio:  aspectRatio,
 		SystemPrompt: systemPrompt,
 		Output:       output,
+		Parts:        parts,
 		Assets:       assets,
 		CreatedAt:    time.Now().Format(time.RFC3339),
 	}

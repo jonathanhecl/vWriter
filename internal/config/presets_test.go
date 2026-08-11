@@ -18,13 +18,17 @@ func TestPresetStore(t *testing.T) {
 		t.Fatalf("expected DEFAULT preset in new store")
 	}
 
-	p1, err := store.AddOrUpdate("Action Sequence", "Use video 1 as motion reference", 10, "16:9", "", "", nil)
+	p1, err := store.AddOrUpdate("Action Sequence", "Use video 1 as motion reference", 10, "16:9", "", "", nil, []PresetPart{{Prompt: "part one", Brief: "opening"}})
 	if err != nil {
 		t.Fatalf("failed to add preset: %v", err)
 	}
 
 	if p1.Name != "Action Sequence" {
 		t.Errorf("unexpected name: %s", p1.Name)
+	}
+
+	if len(p1.Parts) != 1 || p1.Parts[0].Prompt != "part one" || p1.Parts[0].Brief != "opening" {
+		t.Errorf("parts not persisted: %+v", p1.Parts)
 	}
 
 	if len(store.List()) != 2 {

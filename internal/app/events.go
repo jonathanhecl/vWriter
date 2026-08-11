@@ -41,6 +41,8 @@ func (a *App) handleEvents(gtx layout.Context) {
 	}
 	if a.clearMediaBtn.Clicked(gtx) {
 		a.engine.Store.Clear(a.session)
+		a.storyParts = nil
+		a.partIndex = 0
 		a.hasResult = false
 		a.autoSaveCurrentPreset()
 	}
@@ -80,6 +82,30 @@ func (a *App) handleEvents(gtx layout.Context) {
 	}
 	if a.restoreBtn.Clicked(gtx) && a.originalOut != "" {
 		a.outputEditor.SetText(a.originalOut)
+	}
+	if a.regenerateBtn.Clicked(gtx) && a.hasResult {
+		a.regeneratePart()
+	}
+	if a.extendBtn.Clicked(gtx) && a.hasResult {
+		a.extendOpen = !a.extendOpen
+		a.window.Invalidate()
+	}
+	if a.genExtendBtn.Clicked(gtx) && a.hasResult && len(a.storyParts) > 0 {
+		a.extendStory()
+	}
+	if a.copyAllBtn.Clicked(gtx) && len(a.storyParts) > 1 {
+		a.copyAllParts(gtx)
+	}
+	for len(a.partChips) < len(a.storyParts) {
+		a.partChips = append(a.partChips, widget.Clickable{})
+	}
+	for index := range a.partChips {
+		if index >= len(a.storyParts) {
+			break
+		}
+		if a.partChips[index].Clicked(gtx) {
+			a.selectPart(index)
+		}
 	}
 	if a.unloadBtn.Clicked(gtx) {
 		a.unloadModel()

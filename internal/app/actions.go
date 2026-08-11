@@ -13,6 +13,7 @@ import (
 	"github.com/jonathanhecl/vWriter/internal/config"
 	"github.com/jonathanhecl/vWriter/internal/engine"
 	"github.com/jonathanhecl/vWriter/internal/media"
+	"github.com/jonathanhecl/vWriter/internal/prompt"
 )
 
 // durationSeconds maps the 0..1 slider to 1..20 seconds.
@@ -228,6 +229,9 @@ func (a *App) generate() {
 	a.generating = true
 	a.streamTokens = 0
 	a.mu.Unlock()
+	a.pendingAction = "generate"
+	a.pendingIndex = 0
+	a.pendingBrief = ""
 	a.saveConfig()
 
 	params := engine.GenerateParams{
@@ -266,21 +270,28 @@ func (a *App) generate() {
 	}()
 }
 
-// refine launches a text-only refinement in the background.
+// refine launches a text-only refinement of the selected part in the background.
 func (a *App) refine() {
 	instruction := strings.TrimSpace(a.refineEditor.Text())
 	if instruction == "" || !a.hasResult {
 		return
 	}
+	if a.partIndex < 0 || a.partIndex >= len(a.storyParts) {
+		return
+	}
+	current := a.storyParts[a.partIndex].Prompt
 	a.mu.Lock()
 	a.generating = true
 	a.streamTokens = 0
 	a.mu.Unlock()
-	a.originalOut = a.outputEditor.Text()
+	a.pendingAction = "refine"
+	a.pendingIndex = a.partIndex
+	a.pendingBrief = ""
+	a.originalOut = current
 	params := engine.RefineParams{
 		SessionID:            a.session,
 		Model:                a.selectedModel(),
-		CurrentPrompt:        a.outputEditor.Text(),
+		CurrentPrompt:        current,
 		Instruction:          instruction,
 		ContextProfile:       contextProfiles[a.contextIndex],
 		Thinking:             a.thinking.Value,
@@ -320,6 +331,225 @@ func (a *App) systemPromptOverride() *string {
 		return nil
 	}
 	return &text
+}
+
+// continuationFrameLabel returns the fixed virtual first-frame label used by
+// every extension of the current story: the first number after the real
+// picture assets, so it never collides with them.
+func (a *App) continuationFrameLabel() string {
+	count := 0
+	for _, asset := range a.engine.Store.List(a.session) {
+		if asset.Type == media.Image {
+			count++
+		}
+	}
+	return fmt.Sprintf("<Picture %d>", count+1)
+}
+
+// extendStory generates the next part of the story from the previous part's
+// ending, using the idea the user wrote in the extend editor.
+func (a *App) extendStory() {
+	model := a.selectedModel()
+	if model == "" {
+		a.toasts = append(a.toasts, toastMsg{text: "Select a model first.", isError: true})
+		return
+	}
+	if len(a.storyParts) == 0 {
+		return
+	}
+	brief := strings.TrimSpace(a.extendEditor.Text())
+	if brief == "" {
+		a.toasts = append(a.toasts, toastMsg{text: "Describe what happens in the next part first.", isError: true})
+		return
+	}
+	previous := a.storyParts[len(a.storyParts)-1].Prompt
+	ending := prompt.ExtractEndingState(previous)
+	if ending == "" {
+		a.toasts = append(a.toasts, toastMsg{text: "The previous part has no extractable ending state.", isError: true})
+		return
+	}
+	a.mu.Lock()
+	a.generating = true
+	a.streamTokens = 0
+	a.mu.Unlock()
+	a.pendingAction = "extend"
+	a.pendingIndex = len(a.storyParts)
+	a.pendingBrief = brief
+	a.saveConfig()
+
+	params := engine.ContinuationParams{
+		SessionID:              a.session,
+		Model:                  model,
+		PartBrief:              brief,
+		DurationSeconds:        float64(a.durationSeconds()),
+		AspectRatio:            aspectOptions[a.aspectIndex],
+		PreviousPrompt:         previous,
+		PreviousEnding:         ending,
+		ContinuationFrameLabel: a.continuationFrameLabel(),
+		ContextProfile:         contextProfiles[a.contextIndex],
+		Thinking:               a.thinking.Value,
+		KeepModelLoaded:        a.keepLoaded.Value,
+		SystemPromptOverride:   a.systemPromptOverride(),
+		OnPhase: func(phase string) {
+			a.mu.Lock()
+			a.phase = phase
+			a.mu.Unlock()
+			a.window.Invalidate()
+		},
+		OnProgress: func(tokens int) {
+			a.mu.Lock()
+			a.streamTokens = tokens
+			a.mu.Unlock()
+			a.window.Invalidate()
+		},
+	}
+	go func() {
+		result, err := a.engine.GenerateContinuation(params)
+		a.mu.Lock()
+		if err != nil {
+			a.pendingErr = err
+		} else {
+			a.pendingResult = result
+		}
+		a.mu.Unlock()
+		a.window.Invalidate()
+	}()
+}
+
+// regeneratePart re-generates the selected part. Part 1 is a fresh generation
+// from the main brief; later parts are continuations of the previous part's
+// ending using the brief the user wrote for that part. Following parts are
+// dropped because their opening frames depend on the regenerated ending.
+func (a *App) regeneratePart() {
+	model := a.selectedModel()
+	if model == "" || !a.hasResult {
+		return
+	}
+	index := a.partIndex
+	if index < 0 || index >= len(a.storyParts) {
+		return
+	}
+	a.mu.Lock()
+	a.generating = true
+	a.streamTokens = 0
+	a.mu.Unlock()
+	a.pendingAction = "regenerate"
+	a.pendingIndex = index
+	a.pendingBrief = ""
+	a.saveConfig()
+
+	if index == 0 {
+		params := engine.GenerateParams{
+			SessionID:            a.session,
+			Model:                model,
+			CreativeBrief:        a.briefEditor.Text(),
+			DurationSeconds:      float64(a.durationSeconds()),
+			AspectRatio:          aspectOptions[a.aspectIndex],
+			ContextProfile:       contextProfiles[a.contextIndex],
+			Thinking:             a.thinking.Value,
+			KeepModelLoaded:      a.keepLoaded.Value,
+			SystemPromptOverride: a.systemPromptOverride(),
+			OnPhase: func(phase string) {
+				a.mu.Lock()
+				a.phase = phase
+				a.mu.Unlock()
+				a.window.Invalidate()
+			},
+			OnProgress: func(tokens int) {
+				a.mu.Lock()
+				a.streamTokens = tokens
+				a.mu.Unlock()
+				a.window.Invalidate()
+			},
+		}
+		go func() {
+			result, err := a.engine.Generate(params)
+			a.mu.Lock()
+			if err != nil {
+				a.pendingErr = err
+			} else {
+				a.pendingResult = result
+			}
+			a.mu.Unlock()
+			a.window.Invalidate()
+		}()
+		return
+	}
+
+	previous := a.storyParts[index-1].Prompt
+	ending := prompt.ExtractEndingState(previous)
+	brief := a.storyParts[index].Brief
+	if brief == "" {
+		brief = a.extendEditor.Text()
+	}
+	if ending == "" {
+		a.mu.Lock()
+		a.generating = false
+		a.mu.Unlock()
+		a.toasts = append(a.toasts, toastMsg{text: "The previous part has no extractable ending state.", isError: true})
+		return
+	}
+	params := engine.ContinuationParams{
+		SessionID:              a.session,
+		Model:                  model,
+		PartBrief:              brief,
+		DurationSeconds:        float64(a.durationSeconds()),
+		AspectRatio:            aspectOptions[a.aspectIndex],
+		PreviousPrompt:         previous,
+		PreviousEnding:         ending,
+		ContinuationFrameLabel: a.continuationFrameLabel(),
+		ContextProfile:         contextProfiles[a.contextIndex],
+		Thinking:               a.thinking.Value,
+		KeepModelLoaded:        a.keepLoaded.Value,
+		SystemPromptOverride:   a.systemPromptOverride(),
+		OnPhase: func(phase string) {
+			a.mu.Lock()
+			a.phase = phase
+			a.mu.Unlock()
+			a.window.Invalidate()
+		},
+		OnProgress: func(tokens int) {
+			a.mu.Lock()
+			a.streamTokens = tokens
+			a.mu.Unlock()
+			a.window.Invalidate()
+		},
+	}
+	go func() {
+		result, err := a.engine.GenerateContinuation(params)
+		a.mu.Lock()
+		if err != nil {
+			a.pendingErr = err
+		} else {
+			a.pendingResult = result
+		}
+		a.mu.Unlock()
+		a.window.Invalidate()
+	}()
+}
+
+// selectPart loads the selected story part into the output editor.
+func (a *App) selectPart(index int) {
+	if index < 0 || index >= len(a.storyParts) {
+		return
+	}
+	a.partIndex = index
+	a.originalOut = a.storyParts[index].Prompt
+	a.outputEditor.SetText(a.storyParts[index].Prompt)
+	a.lastAIMark = a.storyParts[index].Prompt
+	a.hasResult = true
+	if a.window != nil {
+		a.window.Invalidate()
+	}
+}
+
+// presetParts flattens the current story into the preset part list.
+func (a *App) presetParts() []config.PresetPart {
+	parts := make([]config.PresetPart, 0, len(a.storyParts))
+	for _, part := range a.storyParts {
+		parts = append(parts, config.PresetPart{Prompt: part.Prompt, Brief: part.Brief})
+	}
+	return parts
 }
 
 // unloadModel asks the server to evict the selected model.
@@ -377,7 +607,7 @@ func (a *App) saveCurrentPreset(name string) {
 		})
 	}
 
-	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt, a.outputEditor.Text(), presetAssets)
+	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt, a.outputEditor.Text(), presetAssets, a.presetParts())
 	if err != nil {
 		a.mu.Lock()
 		a.toasts = append(a.toasts, toastMsg{text: "Failed to save preset: " + err.Error(), isError: true})
@@ -429,12 +659,33 @@ func (a *App) loadPreset(index int) {
 		a.sysEditor.SetText("")
 		a.cfg.SystemPromptOverride = ""
 	}
-	if p.Output != "" {
+	if len(p.Parts) > 0 {
+		a.storyParts = nil
+		for _, part := range p.Parts {
+			a.storyParts = append(a.storyParts, storyPart{Prompt: part.Prompt, Brief: part.Brief})
+		}
+		a.partIndex = 0
+		if len(a.storyParts) > 0 {
+			a.outputEditor.SetText(a.storyParts[0].Prompt)
+			a.lastAIMark = a.storyParts[0].Prompt
+			a.originalOut = a.storyParts[0].Prompt
+			a.hasResult = true
+			a.highlightMode = true
+		}
+	} else if p.Output != "" {
+		a.storyParts = []storyPart{{Prompt: p.Output, Brief: ""}}
+		a.partIndex = 0
 		a.outputEditor.SetText(p.Output)
+		a.lastAIMark = p.Output
+		a.originalOut = p.Output
 		a.hasResult = true
 		a.highlightMode = true
 	} else {
+		a.storyParts = nil
+		a.partIndex = 0
 		a.outputEditor.SetText("")
+		a.lastAIMark = ""
+		a.originalOut = ""
 		a.hasResult = false
 	}
 
@@ -514,7 +765,7 @@ func (a *App) autoSaveCurrentPreset() {
 		presetAssets = append(presetAssets, pa)
 	}
 
-	_, _ = a.presetStore.AddOrUpdate(presetName, brief, dur, aspect, sys, output, presetAssets)
+	_, _ = a.presetStore.AddOrUpdate(presetName, brief, dur, aspect, sys, output, presetAssets, a.presetParts())
 }
 
 // deleteCurrentPreset deletes the currently selected preset (cannot delete DEFAULT).
