@@ -417,9 +417,18 @@ func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, tot
 										return l.Layout(gtx)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										// Show role badge if assigned.
+										// Show frame-anchor type or role badge.
 										badgeText := asset.Role
-										if badgeText == "" {
+										badgeColored := asset.Role != ""
+										switch asset.Role {
+										case media.RoleFirstFrame:
+											badgeText = "FIRST FRAME"
+										case media.RoleLastFrame:
+											badgeText = "LAST FRAME"
+										}
+										if asset.Role == media.RoleFirstFrame || asset.Role == media.RoleLastFrame {
+											badgeColored = true
+										} else if badgeText == "" {
 											badgeText = asset.Filename
 											if len(badgeText) > 14 {
 												badgeText = badgeText[:12] + "…"
@@ -431,7 +440,7 @@ func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, tot
 											}
 										}
 										l := material.Label(a.theme, 10, badgeText)
-										if asset.Role != "" {
+										if badgeColored {
 											l.Color = colorAccent
 										} else {
 											l.Color = colorTextDim

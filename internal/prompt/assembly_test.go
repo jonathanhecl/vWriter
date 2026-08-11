@@ -168,6 +168,34 @@ func TestAudioDeclaredButNeverAnalyzed(t *testing.T) {
 	}
 }
 
+func TestBoundaryPropagatesToMediaInputAndManifest(t *testing.T) {
+	req := validGenerateRequest()
+	req.Manifest.Assets[0].Role = media.RoleFirstFrame
+	assembled, err := AssembleRequest(req)
+	if err != nil {
+		t.Fatalf("AssembleRequest: %v", err)
+	}
+	if len(assembled.MediaInputs) != 1 || assembled.MediaInputs[0].Boundary != media.RoleFirstFrame {
+		t.Fatalf("media inputs = %+v", assembled.MediaInputs)
+	}
+	if !strings.Contains(assembled.Messages[3].Content, "MUST start with this exact image") {
+		t.Fatal("manifest must carry the first_frame constraint")
+	}
+
+	req = validGenerateRequest()
+	req.Manifest.Assets[0].Role = media.RoleLastFrame
+	assembled, err = AssembleRequest(req)
+	if err != nil {
+		t.Fatalf("AssembleRequest: %v", err)
+	}
+	if len(assembled.MediaInputs) != 1 || assembled.MediaInputs[0].Boundary != media.RoleLastFrame {
+		t.Fatalf("media inputs = %+v", assembled.MediaInputs)
+	}
+	if !strings.Contains(assembled.Messages[3].Content, "MUST end with this exact image") {
+		t.Fatal("manifest must carry the last_frame constraint")
+	}
+}
+
 func TestAssembleRefinement(t *testing.T) {
 	assembled, err := AssembleRefinement(RefineRequest{
 		Manifest:          validManifest(),

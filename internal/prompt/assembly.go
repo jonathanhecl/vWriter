@@ -32,7 +32,8 @@ type Message struct {
 type MediaInput struct {
 	AssetID   string        `json:"asset_id"`
 	Reference string        `json:"reference"`
-	Type      string        `json:"type"` // "image" or "video"
+	Type      string        `json:"type"`               // "image" or "video"
+	Boundary  string        `json:"boundary,omitempty"` // "" | "first_frame" | "last_frame" (derived from the asset role)
 	Frames    []media.Frame `json:"frames,omitempty"`
 	ImagePath string        `json:"image_path,omitempty"` // prepared image
 	SheetPath string        `json:"sheet_path,omitempty"` // video contact sheet
@@ -157,6 +158,9 @@ func declaredReferences(manifest media.Manifest) (declared []*media.Asset, input
 			Reference: asset.Reference,
 			Type:      string(asset.Type),
 			Frames:    asset.Frames,
+		}
+		if asset.Role == media.RoleFirstFrame || asset.Role == media.RoleLastFrame {
+			input.Boundary = asset.Role
 		}
 		if asset.Type == media.Image {
 			input.ImagePath = asset.PreparedPath

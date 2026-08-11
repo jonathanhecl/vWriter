@@ -65,6 +65,14 @@ func ReferenceLine(asset *Asset) string {
 	}
 	line := fmt.Sprintf("%s: %s (%s)", asset.Reference, asset.Filename, detail)
 
+	// Frame-anchor types are hard start/end constraints, not semantic roles.
+	switch asset.Role {
+	case RoleFirstFrame:
+		return line + " [first_frame: the output sequence MUST start with this exact image]"
+	case RoleLastFrame:
+		return line + " [last_frame: the output sequence MUST end with this exact image]"
+	}
+
 	// Append user-assigned semantic context if provided.
 	if asset.Role != "" {
 		meta := "role: " + asset.Role

@@ -22,6 +22,13 @@ const (
 
 type AssetType string
 
+// Frame-anchor types. When an image's Role is one of these, the model must
+// treat the image as the required first or last frame of the output sequence.
+const (
+	RoleFirstFrame = "first_frame"
+	RoleLastFrame  = "last_frame"
+)
+
 var (
 	imageExtensions = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".bmp": true, ".tif": true, ".tiff": true}
 	videoExtensions = map[string]bool{".mp4": true, ".mov": true, ".mkv": true, ".webm": true, ".avi": true, ".m4v": true}
@@ -73,8 +80,8 @@ type Asset struct {
 	Frames           []Frame `json:"frames,omitempty"`
 
 	// User-assigned semantic metadata (optional; not required for generation).
-	Role          string `json:"role,omitempty"`           // e.g. "person", "scene", "music", "voice"
-	Label         string `json:"label,omitempty"`          // e.g. "John", "office background"
+	Role          string `json:"role,omitempty"`            // e.g. "person", "scene", "music", "voice", "first_frame", "last_frame"
+	Label         string `json:"label,omitempty"`           // e.g. "John", "office background"
 	LinkedAssetID string `json:"linked_asset_id,omitempty"` // for audio voice: the picture asset ID it belongs to
 
 	// On-disk locations. OriginalPath is the user's file and is never deleted.
@@ -225,12 +232,22 @@ func (s *Store) Clear(sessionID string) {
 }
 
 // SetRole sets the semantic role, label, and optional linked asset on an asset.
+// Frame-anchor roles (first_frame, last_frame) are exclusive: assigning one
+// clears the same role from the previous image, so the sequence has at most
+// one required first frame and one required last frame.
 func (s *Store) SetRole(sessionID, assetID, role, label, linkedAssetID string) (*Asset, error) {
 	asset, err := s.Get(sessionID, assetID)
 	if err != nil {
 		return nil, err
 	}
 	s.mu.Lock()
+	if role == RoleFirstFrame || role == RoleLastFrame {
+		for _, other := range s.sessions[sessionID] {
+			if other.ID != assetID && other.Role == role {
+				other.Role = ""
+			}
+		}
+	}
 	asset.Role = role
 	asset.Label = label
 	asset.LinkedAssetID = linkedAssetID

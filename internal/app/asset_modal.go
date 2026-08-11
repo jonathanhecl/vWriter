@@ -12,7 +12,7 @@ import (
 	"github.com/jonathanhecl/vWriter/internal/media"
 )
 
-var imageRoles = []string{"person", "scene", "clothes", "accessory"}
+var imageRoles = []string{"person", "scene", "clothes", "accessory", "first_frame", "last_frame"}
 var videoRoles = []string{"reference", "movement", "camera"}
 var audioRoles = []string{"music", "voice"}
 

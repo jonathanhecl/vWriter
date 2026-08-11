@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jonathanhecl/vWriter/internal/media"
 	"github.com/jonathanhecl/vWriter/internal/ollama"
 	"github.com/jonathanhecl/vWriter/internal/prompt"
 )
@@ -30,6 +31,18 @@ func buildChatRequest(model string, assembled *prompt.Assembled, plan *prompt.Pl
 	for _, input := range inputs {
 		path := input.ImagePath
 		binding := fmt.Sprintf("%s: image reference.", input.Reference)
+		switch input.Boundary {
+		case media.RoleFirstFrame:
+			binding = fmt.Sprintf(
+				"%s MANDATORY: the output sequence MUST start with this exact image as its first frame; "+
+					"everything in the story develops forward from it.",
+				binding)
+		case media.RoleLastFrame:
+			binding = fmt.Sprintf(
+				"%s MANDATORY: the output sequence MUST end with this exact image as its last frame; "+
+					"everything in the story converges to it.",
+				binding)
+		}
 		if input.Type == "video" {
 			path = input.SheetPath
 			binding = fmt.Sprintf(

@@ -199,6 +199,45 @@ func TestSetAnalysis(t *testing.T) {
 	}
 }
 
+func TestFrameAnchorRoleExclusivity(t *testing.T) {
+	store, session := testStore(t)
+	dir := t.TempDir()
+	a, _ := store.Add(session, writeJPEG(t, dir, "a.jpg", 10, 10))
+	b, _ := store.Add(session, writeJPEG(t, dir, "b.jpg", 10, 10))
+
+	if _, err := store.SetRole(session, a.ID, RoleFirstFrame, "", ""); err != nil {
+		t.Fatalf("SetRole: %v", err)
+	}
+	// A new first_frame assignment must clear the previous one.
+	if _, err := store.SetRole(session, b.ID, RoleFirstFrame, "", ""); err != nil {
+		t.Fatalf("SetRole: %v", err)
+	}
+	assets := store.List(session)
+	if assets[0].Role != "" || assets[1].Role != RoleFirstFrame {
+		t.Fatalf("exclusivity violated: %+v", assets)
+	}
+	// first_frame and last_frame can coexist on different images.
+	if _, err := store.SetRole(session, a.ID, RoleLastFrame, "", ""); err != nil {
+		t.Fatalf("SetRole: %v", err)
+	}
+	assets = store.List(session)
+	if assets[0].Role != RoleLastFrame || assets[1].Role != RoleFirstFrame {
+		t.Fatalf("both anchors expected: %+v", assets)
+	}
+	// Clearing works.
+	if _, err := store.SetRole(session, a.ID, "", "", ""); err != nil {
+		t.Fatalf("SetRole: %v", err)
+	}
+	// A non-anchor role on one image must not clear another anchor.
+	if _, err := store.SetRole(session, a.ID, "scene", "", ""); err != nil {
+		t.Fatalf("SetRole: %v", err)
+	}
+	assets = store.List(session)
+	if assets[0].Role != "scene" || assets[1].Role != RoleFirstFrame {
+		t.Fatalf("scene role must not clear the first_frame anchor: %+v", assets)
+	}
+}
+
 func TestResampleValidation(t *testing.T) {
 	store, session := testStore(t)
 	dir := t.TempDir()
@@ -242,6 +281,16 @@ func TestReferenceLine(t *testing.T) {
 	audioAsset := &Asset{Type: Audio, Reference: "<Audio 1>", Filename: "song.mp3", Duration: 12}
 	got = ReferenceLine(audioAsset)
 	if !strings.Contains(got, "not analyzed by the local model") {
+		t.Errorf("got %q", got)
+	}
+	firstAsset := &Asset{Type: Image, Reference: "<Picture 1>", Filename: "open.jpg", Role: RoleFirstFrame}
+	got = ReferenceLine(firstAsset)
+	if !strings.Contains(got, "MUST start with this exact image") {
+		t.Errorf("got %q", got)
+	}
+	lastAsset := &Asset{Type: Image, Reference: "<Picture 2>", Filename: "close.jpg", Role: RoleLastFrame}
+	got = ReferenceLine(lastAsset)
+	if !strings.Contains(got, "MUST end with this exact image") {
 		t.Errorf("got %q", got)
 	}
 }

@@ -286,6 +286,34 @@ func TestGenerateBusy(t *testing.T) {
 	<-done
 }
 
+func TestGenerateBoundaryBinding(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		role   string
+		phrase string
+	}{
+		{"first frame", media.RoleFirstFrame, "MUST start with this exact image"},
+		{"last frame", media.RoleLastFrame, "MUST end with this exact image"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeOllama{t: t, responses: []string{buildPrompt(validPrompt, 400)}}
+			eng, session := testRig(t, fake)
+			assets := eng.Store.List(session)
+			if _, err := eng.Store.SetRole(session, assets[0].ID, tc.role, "", ""); err != nil {
+				t.Fatalf("SetRole: %v", err)
+			}
+			if _, err := eng.Generate(generateParams(session)); err != nil {
+				t.Fatalf("Generate: %v", err)
+			}
+			fake.mu.Lock()
+			defer fake.mu.Unlock()
+			if !strings.Contains(string(fake.requests[0]), tc.phrase) {
+				t.Fatalf("missing %q in chat request", tc.phrase)
+			}
+		})
+	}
+}
+
 func TestRefineWithoutMedia(t *testing.T) {
 	fake := &fakeOllama{t: t, responses: []string{buildPrompt(validPrompt, 420)}}
 	eng, session := testRig(t, fake)

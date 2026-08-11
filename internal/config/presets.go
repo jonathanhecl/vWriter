@@ -13,11 +13,11 @@ import (
 
 // PresetAsset represents a reference asset stored within a preset.
 type PresetAsset struct {
-	Type                string `json:"type"`                           // "image", "video", "audio"
-	Path                string `json:"path"`                           // file path
+	Type                string `json:"type"` // "image", "video", "audio"
+	Path                string `json:"path"` // file path
 	Filename            string `json:"filename"`
-	Role                string `json:"role,omitempty"`                 // e.g. "person", "scene", "voice"
-	Label               string `json:"label,omitempty"`               // e.g. "John"
+	Role                string `json:"role,omitempty"`                  // e.g. "person", "scene", "voice", "first_frame", "last_frame"
+	Label               string `json:"label,omitempty"`                 // e.g. "John"
 	LinkedAssetFilename string `json:"linked_asset_filename,omitempty"` // for audio voice: filename of the linked image
 }
 
