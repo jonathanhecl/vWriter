@@ -96,7 +96,13 @@ The release script will:
 `appicon.png` is the production app icon. It is generated from the editable
 source at `assets/appicon.svg` and is picked up automatically by Gio's
 `gogio` packager for macOS and Linux bundles. On Windows, `vwriter_windows_amd64.syso`
-embeds the same icon in every executable.
+embeds the same icon in every executable. The `.syso` file is committed; regenerate
+it after changing the icon with:
+
+```powershell
+go install github.com/akavel/rsrc@v0.10.2
+rsrc -ico assets\appicon.ico -o vwriter_windows_amd64.syso
+```
 
 ## Developer logging
 

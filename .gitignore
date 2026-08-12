@@ -32,7 +32,6 @@ config.json
 generations.jsonl
 dist/
 vWriter.exe
-vwriter_windows_amd64.syso
 
 # Editor/IDE
 # .idea/
