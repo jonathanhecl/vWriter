@@ -104,17 +104,21 @@ type App struct {
 	dividerDrag        gesture.Drag
 	mediaFilter        string // "all", "image", "video", "audio"
 	dragStartX         float32
-	connectBtn         widget.Clickable
-	refreshBtn         widget.Clickable
-	unloadBtn          widget.Clickable
-	mediaList          layout.List
-	filterList         layout.List
-	outputList         widget.List
-	leftList           widget.List
-	assetWidgetSet     map[string]*assetWidgets
-	modalStateSet      *modalState
-	modalFrameIndex    int
-	toastClicks        []toastClick
+	// Divider drag state and last window width (UI goroutine only).
+	dividerPressX     float32
+	dividerStartWidth int
+	lastWidthDp       int
+	connectBtn        widget.Clickable
+	refreshBtn        widget.Clickable
+	unloadBtn         widget.Clickable
+	mediaList         layout.List
+	filterList        layout.List
+	outputList        widget.List
+	leftList          widget.List
+	assetWidgetSet    map[string]*assetWidgets
+	modalStateSet     *modalState
+	modalFrameIndex   int
+	toastClicks       []toastClick
 
 	presetStore      *config.PresetStore
 	presetDropdown   dropdown
@@ -252,6 +256,7 @@ func Run(window *app.Window) error {
 
 // frame applies pending async results, handles widget events, and lays out.
 func (a *App) frame(gtx layout.Context) {
+	a.lastWidthDp = int(gtx.Metric.PxToDp(gtx.Constraints.Max.X))
 	// Persist the windowed (restored) size only while windowed; a maximized
 	// window reports its full-screen size, which must not overwrite it.
 	switch a.windowMode {

@@ -349,31 +349,32 @@ func (a *App) vDivider(gtx layout.Context) layout.Dimensions {
 	pointer.CursorColResize.Add(gtx.Ops)
 	rect.Pop()
 
-	// Process drag events on divider
+	// Process drag events on divider. gesture.Drag reports absolute pointer
+	// positions within the hit area (not per-event deltas), so the width is
+	// computed from the press position and the width captured at press time;
+	// the right-edge clamp uses the window width, not the divider's own
+	// remaining constraint.
 	for {
 		event, ok := a.dividerDrag.Update(gtx.Metric, gtx.Source, gesture.Horizontal)
 		if !ok {
 			break
 		}
-		if event.Kind == pointer.Drag {
-			deltaDp := int(event.Position.X / float32(gtx.Dp(1)))
+		switch event.Kind {
+		case pointer.Press:
+			a.dividerPressX = event.Position.X
+			a.dividerStartWidth = a.cfg.LeftPanelWidth
+		case pointer.Drag:
+			deltaDp := int((event.Position.X - a.dividerPressX) / float32(gtx.Dp(1)))
 			if deltaDp != 0 {
-				totalWidthDp := int(float32(gtx.Constraints.Max.X) / float32(gtx.Dp(1)))
-				minLeft := 250
-				maxLeft := max(totalWidthDp-250, minLeft)
-
-				newWidth := a.cfg.LeftPanelWidth + deltaDp
-				if newWidth < minLeft {
-					newWidth = minLeft
-				} else if newWidth > maxLeft {
-					newWidth = maxLeft
-				}
+				maxLeft := max(a.lastWidthDp-250, 250)
+				newWidth := min(max(a.dividerStartWidth+deltaDp, 250), maxLeft)
 				if newWidth != a.cfg.LeftPanelWidth {
 					a.cfg.LeftPanelWidth = newWidth
-					a.saveConfig()
 					a.window.Invalidate()
 				}
 			}
+		case pointer.Release, pointer.Cancel:
+			a.saveConfig()
 		}
 	}
 
