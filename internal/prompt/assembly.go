@@ -121,6 +121,10 @@ func finalContract(taskText string) string {
 			"reused visual element through an appropriate <Subject N> while keeping <Video N> as its source provenance; do not "+
 			"automatically create a separate subject for ordinary motion transfer. "+
 			"If the brief does not explicitly request music, non_diegetic_music must be N/A. "+
+			"The reference manifest is exhaustive: never mention or imply any video, image, or audio that is not "+
+			"listed there. A character name in the brief refers to the reference labeled with that name; never "+
+			"duplicate that person as a second subject and never add characters beyond those named in the brief or "+
+			"bound to a reference. "+
 			"Use the official detail budget for grounded target composition, placement, lighting, atmosphere, camera treatment, "+
 			"supported action progression, and reference application; never pad solely to reach a word count. Return only the complete "+
 			"prompt with all six required sections in the official order and no commentary outside the prompt.",

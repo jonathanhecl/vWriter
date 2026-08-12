@@ -332,6 +332,12 @@ func (a *App) applyResult(res *engine.Result) {
 	if res.RepairApplied {
 		a.toasts = append(a.toasts, toastMsg{text: "One automatic format repair was applied."})
 	}
+	if res.RepairAttempted && !res.RepairApplied {
+		a.toasts = append(a.toasts, toastMsg{
+			text:    "Automatic format repair could not fix all issues. Review the prompt before using it.",
+			isError: true,
+		})
+	}
 	a.autoSaveCurrentPreset()
 }
 

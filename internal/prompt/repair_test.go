@@ -97,6 +97,31 @@ func TestFailureSummaryContainsOnlyObjectiveChecks(t *testing.T) {
 	}
 }
 
+func TestUndeclaredMediaMentions(t *testing.T) {
+	imagesOnly := map[string]bool{"<Picture 1>": true, "<Picture 2>": true}
+
+	hallucinated := "The camera follows the motion of the reference video while the source audio plays."
+	if got := UndeclaredMediaMentions(hallucinated, imagesOnly); len(got) == 0 {
+		t.Fatal("undeclared video and audio mentions must be flagged")
+	}
+
+	bareTag := "The scene continues the action of Video 1."
+	if got := UndeclaredMediaMentions(bareTag, imagesOnly); len(got) == 0 {
+		t.Fatal("bare numbered mention of an undeclared kind must be flagged")
+	}
+
+	declared := map[string]bool{"<Picture 1>": true, "<Video 1>": true}
+	legit := "The reference video drives the motion; the pictures stay consistent."
+	if got := UndeclaredMediaMentions(legit, declared); len(got) != 0 {
+		t.Fatalf("declared kinds must not be flagged: %v", got)
+	}
+
+	clean := "A dancer turns in an empty room. non_diegetic_music: N/A"
+	if got := UndeclaredMediaMentions(clean, imagesOnly); len(got) != 0 {
+		t.Fatalf("clean prompt flagged: %v", got)
+	}
+}
+
 func TestFinalTextCleansSpecialTokens(t *testing.T) {
 	if got := FinalText("  prompt body<|end_of_turn|>  "); got != "prompt body" {
 		t.Fatalf("got %q", got)

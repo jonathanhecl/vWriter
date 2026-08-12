@@ -64,8 +64,10 @@ func enrichAudit(assembled *prompt.Assembled, text string) *prompt.Audit {
 	}
 	audit.UnexpectedAudioTask = prompt.UnexpectedAudioTask(audit.TaskLabel, expected)
 	audit.ExplicitConstraintViolations = prompt.ExplicitConstraintViolations(intentText(assembled), text)
+	audit.UndeclaredMediaMentions = prompt.UndeclaredMediaMentions(text, expected)
 	if len(audit.MissingReferenceTags) > 0 || len(audit.UnexpectedReferenceTags) > 0 ||
-		audit.UnexpectedAudioTask || len(audit.ExplicitConstraintViolations) > 0 {
+		audit.UnexpectedAudioTask || len(audit.ExplicitConstraintViolations) > 0 ||
+		len(audit.UndeclaredMediaMentions) > 0 {
 		audit.RepairRequired = true
 	}
 	return audit

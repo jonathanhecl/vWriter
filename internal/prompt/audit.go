@@ -58,6 +58,7 @@ type Audit struct {
 	UnexpectedReferenceTags      []string `json:"unexpected_reference_tags,omitempty"`
 	UnexpectedAudioTask          bool     `json:"unexpected_audio_task,omitempty"`
 	ExplicitConstraintViolations []string `json:"explicit_constraint_violations,omitempty"`
+	UndeclaredMediaMentions      []string `json:"undeclared_media_mentions,omitempty"`
 }
 
 // InvalidTimestamps extracts timestamp-looking tokens that are malformed or

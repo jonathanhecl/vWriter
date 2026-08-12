@@ -9,14 +9,17 @@ import (
 )
 
 var (
-	referenceTagPattern = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio)\s+(\d+)\s*>`)
-	cameraMovement      = regexp.MustCompile(`(?i)\b(?:zoom(?:s|ed|ing)?|pan(?:s|ned|ning)?|doll(?:y|ies|ied|ying)|tracking shot|camera\s+(?:moves?|pulls?|pushes?|pans?|zooms?|tracks?|dollies?))\b`)
-	noCutsBrief         = regexp.MustCompile(`(?i)\b(?:no cuts?|without cuts?|single continuous shot|one continuous shot)\b`)
-	staticCameraBrief   = regexp.MustCompile(`(?i)\b(?:static|locked(?:-off)?|fixed)\s+camera\b|\bno camera movement\b`)
-	motionOnlyClause    = regexp.MustCompile(`(?i)\b(?:only|solely)\b`)
-	motionWords         = regexp.MustCompile(`(?i)\b(?:motion|movement|dance|choreograph\w*)\b`)
-	videoNumber         = regexp.MustCompile(`(?i)\bVideo\s+([1-3])\b`)
-	audioTaskLabel      = regexp.MustCompile(`(?i)\baudio\s+(?:reuse|reference)\b`)
+	referenceTagPattern    = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio)\s+(\d+)\s*>`)
+	cameraMovement         = regexp.MustCompile(`(?i)\b(?:zoom(?:s|ed|ing)?|pan(?:s|ned|ning)?|doll(?:y|ies|ied|ying)|tracking shot|camera\s+(?:moves?|pulls?|pushes?|pans?|zooms?|tracks?|dollies?))\b`)
+	noCutsBrief            = regexp.MustCompile(`(?i)\b(?:no cuts?|without cuts?|single continuous shot|one continuous shot)\b`)
+	staticCameraBrief      = regexp.MustCompile(`(?i)\b(?:static|locked(?:-off)?|fixed)\s+camera\b|\bno camera movement\b`)
+	motionOnlyClause       = regexp.MustCompile(`(?i)\b(?:only|solely)\b`)
+	motionWords            = regexp.MustCompile(`(?i)\b(?:motion|movement|dance|choreograph\w*)\b`)
+	videoNumber            = regexp.MustCompile(`(?i)\bVideo\s+([1-3])\b`)
+	audioTaskLabel         = regexp.MustCompile(`(?i)\baudio\s+(?:reuse|reference)\b`)
+	undeclaredVideoMention = regexp.MustCompile(`(?i)\b(?:reference|source|input|original|uploaded|provided)\s+(?:video|footage|clip)s?\b|\bvideos?\s+\d+\b`)
+	undeclaredAudioMention = regexp.MustCompile(`(?i)\b(?:reference|source|input|original|uploaded|provided)\s+(?:audio|track|song|music|voice)s?\b|\baudios?\s+\d+\b`)
+	undeclaredImageMention = regexp.MustCompile(`(?i)\b(?:reference|source|input|original|uploaded|provided)\s+(?:image|picture|photo)s?\b|\bpictures?\s+\d+\b`)
 )
 
 // ReferenceTags extracts the normalized numbered media tags of a text,
@@ -28,6 +31,35 @@ func ReferenceTags(text string) map[string]bool {
 		tags[fmt.Sprintf("<%s %s>", kind, groups[2])] = true
 	}
 	return tags
+}
+
+// UndeclaredMediaMentions lists prose or bare-numbered mentions of media
+// kinds the manifest does not declare: hallucinated inputs such as "the
+// reference video" or "Video 1" when no video asset exists. Declared kinds
+// are derived from the expected tags of the request.
+func UndeclaredMediaMentions(text string, expectedTags map[string]bool) []string {
+	declared := map[string]bool{}
+	for tag := range expectedTags {
+		switch {
+		case strings.HasPrefix(tag, "<Picture "):
+			declared["image"] = true
+		case strings.HasPrefix(tag, "<Video "):
+			declared["video"] = true
+		case strings.HasPrefix(tag, "<Audio "):
+			declared["audio"] = true
+		}
+	}
+	var mentions []string
+	if !declared["video"] {
+		mentions = append(mentions, undeclaredVideoMention.FindAllString(text, -1)...)
+	}
+	if !declared["audio"] {
+		mentions = append(mentions, undeclaredAudioMention.FindAllString(text, -1)...)
+	}
+	if !declared["image"] {
+		mentions = append(mentions, undeclaredImageMention.FindAllString(text, -1)...)
+	}
+	return dedupe(mentions)
 }
 
 // UnexpectedAudioTask reports whether the summary task label declares audio
@@ -118,6 +150,9 @@ func AuditFailures(audit *Audit) []string {
 	if audit.UnexpectedAudioTask {
 		failures = append(failures, "audio reference/reuse declared without an uploaded audio asset")
 	}
+	if len(audit.UndeclaredMediaMentions) > 0 {
+		failures = append(failures, "mentions media that was not provided: "+strings.Join(audit.UndeclaredMediaMentions, ", "))
+	}
 	return append(failures, audit.ExplicitConstraintViolations...)
 }
 
@@ -146,7 +181,8 @@ func NarrowRepairMessages(assembled *Assembled, draft string, violations []strin
 	system := "This is a narrow correction pass, not a new prompt-generation pass. Correct only the exact violations " +
 		"listed below and preserve every other supported fact, reference role, action, dialogue line, shot, and " +
 		"creative choice unchanged. Return the complete corrected prompt with no commentary. The exact allowed " +
-		fmt.Sprintf("numbered media tags are: %s. Do not add any other media tag. Requested music without an ", allowedText) +
+		fmt.Sprintf("numbered media tags are: %s. Do not add any other media tag. Do not mention any reference, "+
+			"source, or input media that is not listed in the original request manifest. Requested music without an ", allowedText) +
 		"uploaded audio asset belongs only in non_diegetic_music and is not audio reference or reuse. " +
 		timestampRule + "Violations: " + strings.Join(violations, "; ")
 	user := fmt.Sprintf("ORIGINAL REQUEST:\n%s\n\nDRAFT TO CORRECT:\n%s", originalRequest, draft)
