@@ -62,6 +62,10 @@ type App struct {
 	dirtyOutput   bool
 	images        map[string]image.Image // asset preview path -> decoded
 
+	// windowMode tracks the last ConfigEvent mode so frame() only persists
+	// the window size while windowed (UI goroutine only).
+	windowMode app.WindowMode
+
 	// Widgets (UI goroutine only).
 	urlEditor          widget.Editor
 	modelDropdown      dropdown
@@ -167,6 +171,12 @@ func Run(window *app.Window) error {
 		app.Size(unit.Dp(cfg.WindowWidth), unit.Dp(cfg.WindowHeight)),
 		app.MinSize(unit.Dp(1000), unit.Dp(800)),
 	)
+	// Restore the maximized state in a separate Option call: Gio batches all
+	// options into one config, and on Windows the maximized mode ignores the
+	// size (SWP_NOMOVE|SWP_NOSIZE), so the restored size must be applied first.
+	if cfg.WindowMaximized {
+		window.Option(app.Maximized.Option())
+	}
 	presetStore, _ := config.NewPresetStore(config.DefaultPresetsPath())
 	a := &App{
 		window:        window,
@@ -223,11 +233,15 @@ func Run(window *app.Window) error {
 	var ops op.Ops
 	for {
 		ev := window.Event()
-		centerWindowOnFirstView(window, ev)
+		if !cfg.WindowMaximized {
+			centerWindowOnFirstView(window, ev)
+		}
 		a.explorer.ListenEvents(ev)
 		switch e := ev.(type) {
 		case app.DestroyEvent:
 			return e.Err
+		case app.ConfigEvent:
+			a.windowMode = e.Config.Mode
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 			a.frame(gtx)
@@ -238,12 +252,24 @@ func Run(window *app.Window) error {
 
 // frame applies pending async results, handles widget events, and lays out.
 func (a *App) frame(gtx layout.Context) {
-	wDp := int(gtx.Metric.PxToDp(gtx.Constraints.Max.X))
-	hDp := int(gtx.Metric.PxToDp(gtx.Constraints.Max.Y))
-	if wDp >= 1000 && hDp >= 800 && (a.cfg.WindowWidth != wDp || a.cfg.WindowHeight != hDp) {
-		a.cfg.WindowWidth = wDp
-		a.cfg.WindowHeight = hDp
-		a.saveConfig()
+	// Persist the windowed (restored) size only while windowed; a maximized
+	// window reports its full-screen size, which must not overwrite it.
+	switch a.windowMode {
+	case app.Maximized:
+		if !a.cfg.WindowMaximized {
+			a.cfg.WindowMaximized = true
+			a.saveConfig()
+		}
+	case app.Windowed:
+		wDp := int(gtx.Metric.PxToDp(gtx.Constraints.Max.X))
+		hDp := int(gtx.Metric.PxToDp(gtx.Constraints.Max.Y))
+		if wDp >= 1000 && hDp >= 800 &&
+			(a.cfg.WindowWidth != wDp || a.cfg.WindowHeight != hDp || a.cfg.WindowMaximized) {
+			a.cfg.WindowWidth = wDp
+			a.cfg.WindowHeight = hDp
+			a.cfg.WindowMaximized = false
+			a.saveConfig()
+		}
 	}
 
 	a.applyAsync()

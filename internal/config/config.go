@@ -25,6 +25,9 @@ type Config struct {
 	LeftPanelWidth       int     `json:"left_panel_width,omitempty"`
 	WindowWidth          int     `json:"window_width,omitempty"`
 	WindowHeight         int     `json:"window_height,omitempty"`
+	// WindowMaximized records that the app closed maximized; WindowWidth and
+	// WindowHeight then hold the restored (pre-maximize) size.
+	WindowMaximized bool `json:"window_maximized,omitempty"`
 }
 
 // Default returns the out-of-the-box settings.
