@@ -124,17 +124,13 @@ func TestUndeclaredMediaMentions(t *testing.T) {
 
 func TestSanitizePrompt(t *testing.T) {
 	allowed := map[string]bool{"<Picture 1>": true, "<Subject 1>": true}
-	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nretention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved - the invented voice track.\n\noverall_soundscape:\n<Video 2> drives the rhythm.\n<Subject 3> appears unexpectedly.\n\nnon_diegetic_music:\nN/A"
+	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nretention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved - the invented voice track.\n\noverall_soundscape:\n<Video 2> drives the rhythm.\n<Subject 3> appears unexpectedly.\n<Video None> is not specified as a structural source video.\n<Audio None> is not specified for audio content.\n\nnon_diegetic_music:\nN/A"
 
 	got := SanitizePrompt(prompt, allowed)
-	if strings.Contains(got, "<Audio 1>") {
-		t.Fatalf("invented audio tag must be removed, got %q", got)
-	}
-	if strings.Contains(got, "<Video 2>") {
-		t.Fatalf("invented video tag must be removed, got %q", got)
-	}
-	if strings.Contains(got, "<Subject 3>") {
-		t.Fatalf("invented subject tag must be removed, got %q", got)
+	for _, invented := range []string{"<Audio 1>", "<Video 2>", "<Subject 3>", "<Video None>", "<Audio None>"} {
+		if strings.Contains(got, invented) {
+			t.Fatalf("invented tag %q must be removed, got %q", invented, got)
+		}
 	}
 	if !strings.Contains(got, "<Picture 1>") || !strings.Contains(got, "<Subject 1>") {
 		t.Fatalf("declared references must survive, got %q", got)
@@ -148,6 +144,26 @@ func TestSubjectTags(t *testing.T) {
 	}
 	if got := SubjectTags("<Picture 1> and <Audio 2> only"); len(got) != 0 {
 		t.Fatalf("media tags must not be counted as subjects: %v", got)
+	}
+}
+
+func TestMalformedTags(t *testing.T) {
+	got := MalformedTags("<Video None> is not specified. <Audio N> too. <Picture 1> is fine. <Subject None> here.")
+	for _, want := range []string{"<Video None>", "<Audio N>", "<Subject None>"} {
+		found := false
+		for _, tag := range got {
+			if tag == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("MalformedTags must include %q, got %v", want, got)
+		}
+	}
+	for _, tag := range got {
+		if tag == "<Picture 1>" {
+			t.Errorf("valid tag must not be reported as malformed: %v", got)
+		}
 	}
 }
 

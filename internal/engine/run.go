@@ -74,6 +74,9 @@ func enrichAudit(assembled *prompt.Assembled, text string) *prompt.Audit {
 			audit.UnexpectedReferenceTags = append(audit.UnexpectedReferenceTags, tag)
 		}
 	}
+	// Malformed placeholders such as "<Video None>" never correspond to a
+	// real asset and are always treated as invented.
+	audit.UnexpectedReferenceTags = append(audit.UnexpectedReferenceTags, prompt.MalformedTags(text)...)
 	// Subjects are bounded by the story so far: in a continuation the request
 	// carries the previous part's prompt with its subject definitions, so any
 	// <Subject N> beyond that set is invented. A fresh generation defines them

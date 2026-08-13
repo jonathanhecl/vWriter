@@ -11,6 +11,7 @@ import (
 var (
 	referenceTagPattern    = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio)\s+(\d+)\s*>`)
 	subjectTagPattern      = regexp.MustCompile(`(?i)<\s*Subject\s+(\d+)\s*>`)
+	malformedTagPattern    = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio|Subject)\s+([^0-9][^<>]*)\s*>`)
 	cameraMovement         = regexp.MustCompile(`(?i)\b(?:zoom(?:s|ed|ing)?|pan(?:s|ned|ning)?|doll(?:y|ies|ied|ying)|tracking shot|camera\s+(?:moves?|pulls?|pushes?|pans?|zooms?|tracks?|dollies?))\b`)
 	noCutsBrief            = regexp.MustCompile(`(?i)\b(?:no cuts?|without cuts?|single continuous shot|one continuous shot)\b`)
 	staticCameraBrief      = regexp.MustCompile(`(?i)\b(?:static|locked(?:-off)?|fixed)\s+camera\b|\bno camera movement\b`)
@@ -40,6 +41,21 @@ func SubjectTags(text string) map[string]bool {
 	tags := map[string]bool{}
 	for _, groups := range subjectTagPattern.FindAllStringSubmatch(text, -1) {
 		tags["<Subject "+groups[1]+">"] = true
+	}
+	return tags
+}
+
+// MalformedTags lists malformed numbered-tag placeholders such as "<Video
+// None>" or "<Audio N>", which never correspond to a real asset.
+func MalformedTags(text string) []string {
+	var tags []string
+	seen := map[string]bool{}
+	for _, groups := range malformedTagPattern.FindAllStringSubmatch(text, -1) {
+		tag := strings.TrimSpace(groups[0])
+		if !seen[tag] {
+			seen[tag] = true
+			tags = append(tags, tag)
+		}
 	}
 	return tags
 }
@@ -119,8 +135,12 @@ func AllowedTags(mediaTags, subjectTags map[string]bool) map[string]bool {
 }
 
 // lineReferencesUndeclaredTag reports whether a line contains a media or
-// subject tag that is not in the expected set.
+// subject tag that is not in the expected set, or a malformed placeholder
+// such as "<Video None>".
 func lineReferencesUndeclaredTag(line string, expected map[string]bool) bool {
+	if malformedTagPattern.MatchString(line) {
+		return true
+	}
 	for _, groups := range referenceTagPattern.FindAllStringSubmatch(line, -1) {
 		kind := strings.ToUpper(groups[1][:1]) + strings.ToLower(groups[1][1:])
 		tag := fmt.Sprintf("<%s %s>", kind, groups[2])
