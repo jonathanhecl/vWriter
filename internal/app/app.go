@@ -168,12 +168,13 @@ type App struct {
 }
 
 // storyPart is one prompt of a multi-part story. Brief is the idea the user
-// wrote for that part (for part 1, the main creative brief), and Refines
-// holds every revision instruction applied to the part.
+// wrote for that part (for part 1, the main creative brief), and Refine is the
+// accumulated revision instruction: refining an already-refined part starts
+// from the existing text and replaces it.
 type storyPart struct {
-	Prompt  string
-	Brief   string
-	Refines []string
+	Prompt string
+	Brief  string
+	Refine string
 }
 
 // Run starts the window event loop.
@@ -329,7 +330,7 @@ func (a *App) applyResult(res *engine.Result) {
 		if a.pendingIndex >= 0 && a.pendingIndex < len(a.storyParts) {
 			a.storyParts[a.pendingIndex].Prompt = res.Prompt
 			if refine := strings.TrimSpace(a.pendingRefine); refine != "" {
-				a.storyParts[a.pendingIndex].Refines = append(a.storyParts[a.pendingIndex].Refines, refine)
+				a.storyParts[a.pendingIndex].Refine = refine
 			}
 			a.partIndex = a.pendingIndex
 		}

@@ -363,8 +363,8 @@ func (a *App) storyPartBriefText(index int) string {
 	if part.Brief != "" {
 		builder.WriteString("\nBrief: " + part.Brief)
 	}
-	for _, refine := range part.Refines {
-		builder.WriteString("\nRefine: " + refine)
+	if part.Refine != "" {
+		builder.WriteString("\nRefine: " + part.Refine)
 	}
 	return builder.String()
 }

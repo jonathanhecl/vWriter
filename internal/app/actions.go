@@ -532,7 +532,8 @@ func (a *App) regeneratePart() {
 	}()
 }
 
-// selectPart loads the selected story part into the output editor.
+// selectPart loads the selected story part into the output editor and the
+// refine bar.
 func (a *App) selectPart(index int) {
 	if index < 0 || index >= len(a.storyParts) {
 		return
@@ -542,6 +543,7 @@ func (a *App) selectPart(index int) {
 	a.outputEditor.SetText(a.storyParts[index].Prompt)
 	a.lastAIMark = a.storyParts[index].Prompt
 	a.hasResult = true
+	a.refineEditor.SetText(a.storyParts[index].Refine)
 	if a.window != nil {
 		a.window.Invalidate()
 	}
@@ -551,7 +553,7 @@ func (a *App) selectPart(index int) {
 func (a *App) presetParts() []config.PresetPart {
 	parts := make([]config.PresetPart, 0, len(a.storyParts))
 	for _, part := range a.storyParts {
-		parts = append(parts, config.PresetPart{Prompt: part.Prompt, Brief: part.Brief, Refines: append([]string(nil), part.Refines...)})
+		parts = append(parts, config.PresetPart{Prompt: part.Prompt, Brief: part.Brief, Refine: part.Refine})
 	}
 	return parts
 }
@@ -666,7 +668,7 @@ func (a *App) loadPreset(index int) {
 	if len(p.Parts) > 0 {
 		a.storyParts = nil
 		for _, part := range p.Parts {
-			a.storyParts = append(a.storyParts, storyPart{Prompt: part.Prompt, Brief: part.Brief, Refines: append([]string(nil), part.Refines...)})
+			a.storyParts = append(a.storyParts, storyPart{Prompt: part.Prompt, Brief: part.Brief, Refine: part.Refine})
 		}
 		a.partIndex = 0
 		if len(a.storyParts) > 0 {

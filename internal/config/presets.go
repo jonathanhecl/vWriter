@@ -23,9 +23,9 @@ type PresetAsset struct {
 
 // PresetPart is one prompt of a multi-part story stored in a preset.
 type PresetPart struct {
-	Prompt  string   `json:"prompt"`
-	Brief   string   `json:"brief,omitempty"`   // the idea the user wrote for this part
-	Refines []string `json:"refines,omitempty"` // revision instructions applied to this part
+	Prompt string `json:"prompt"`
+	Brief  string `json:"brief,omitempty"`  // the idea the user wrote for this part
+	Refine string `json:"refine,omitempty"` // the accumulated revision instruction for this part
 }
 
 // Preset represents a saved creative prompt template.

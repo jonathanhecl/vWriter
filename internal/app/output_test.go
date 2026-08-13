@@ -7,8 +7,8 @@ import (
 
 func TestStoryPartBriefText(t *testing.T) {
 	a := &App{storyParts: []storyPart{
-		{Prompt: "p1", Brief: "main brief", Refines: []string{"make it colder"}},
-		{Prompt: "p2", Brief: "part 2 idea", Refines: []string{"add more tension", "slow the pacing"}},
+		{Prompt: "p1", Brief: "main brief", Refine: "make it colder"},
+		{Prompt: "p2", Brief: "part 2 idea", Refine: "add tension, slow the pacing"},
 		{Prompt: "p3", Brief: "part 3 idea"},
 	}}
 
@@ -16,8 +16,7 @@ func TestStoryPartBriefText(t *testing.T) {
 	for _, phrase := range []string{
 		"Part 2",
 		"part 2 idea",
-		"add more tension",
-		"slow the pacing",
+		"add tension, slow the pacing",
 	} {
 		if !strings.Contains(got, phrase) {
 			t.Errorf("storyPartBriefText missing %q", phrase)

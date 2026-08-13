@@ -76,6 +76,9 @@ func (a *App) handleEvents(gtx layout.Context) {
 	}
 	if a.refineBtn.Clicked(gtx) && a.hasResult {
 		a.refineOpen = !a.refineOpen
+		if a.refineOpen && a.partIndex >= 0 && a.partIndex < len(a.storyParts) {
+			a.refineEditor.SetText(a.storyParts[a.partIndex].Refine)
+		}
 	}
 	if a.rewriteBtn.Clicked(gtx) {
 		a.refine()

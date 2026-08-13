@@ -47,7 +47,7 @@ func TestApplyResultExtendAppendsParts(t *testing.T) {
 	}
 }
 
-func TestApplyResultRefineAppendsInstruction(t *testing.T) {
+func TestApplyResultRefineReplacesInstruction(t *testing.T) {
 	a := testApp(t)
 	a.storyParts = []storyPart{{Prompt: "P1"}, {Prompt: "P2"}}
 	a.pendingAction = "refine"
@@ -57,19 +57,22 @@ func TestApplyResultRefineAppendsInstruction(t *testing.T) {
 	if a.storyParts[1].Prompt != "P2-REFINED" {
 		t.Fatalf("refined prompt not applied: %+v", a.storyParts[1])
 	}
-	if len(a.storyParts[1].Refines) != 1 || a.storyParts[1].Refines[0] != "make the lighting colder" {
-		t.Fatalf("refine instruction not recorded: %+v", a.storyParts[1])
+	if a.storyParts[1].Refine != "make the lighting colder" {
+		t.Fatalf("refine not recorded: %+v", a.storyParts[1])
 	}
-	// A second refine appends.
-	a.pendingRefine = "speed up the pacing"
+	// Refining an already-refined part replaces the previous instruction.
+	a.pendingRefine = "make it darker and add rain"
 	a.applyResult(&engine.Result{Prompt: "P2-REFINED-2"})
-	if len(a.storyParts[1].Refines) != 2 || a.storyParts[1].Refines[1] != "speed up the pacing" {
-		t.Fatalf("second refine not appended: %+v", a.storyParts[1])
+	if a.storyParts[1].Refine != "make it darker and add rain" {
+		t.Fatalf("refine-of-refine must replace, got %+v", a.storyParts[1])
 	}
-	// Refines flow into the selected part's copy-brief text.
+	// Only the final refine appears in the selected part's copy-brief text.
 	brief := a.storyPartBriefText(1)
-	if !strings.Contains(brief, "make the lighting colder") || !strings.Contains(brief, "speed up the pacing") {
-		t.Fatalf("refines missing from brief text: %q", brief)
+	if !strings.Contains(brief, "make it darker and add rain") {
+		t.Fatalf("refine missing from brief text: %q", brief)
+	}
+	if strings.Contains(brief, "make the lighting colder") {
+		t.Fatalf("superseded refine must not appear: %q", brief)
 	}
 }
 
@@ -109,7 +112,7 @@ func TestApplyResultRegenerateKeepsFollowingParts(t *testing.T) {
 
 func TestSelectPartSyncsEditor(t *testing.T) {
 	a := testApp(t)
-	a.storyParts = []storyPart{{Prompt: "P1"}, {Prompt: "P2"}}
+	a.storyParts = []storyPart{{Prompt: "P1", Refine: "make it colder"}, {Prompt: "P2"}}
 	a.partIndex = 1
 	a.selectPart(0)
 	if a.partIndex != 0 {
@@ -120,5 +123,8 @@ func TestSelectPartSyncsEditor(t *testing.T) {
 	}
 	if a.originalOut != "P1" || a.lastAIMark != "P1" {
 		t.Fatalf("editor marks not synced: original=%q lastAI=%q", a.originalOut, a.lastAIMark)
+	}
+	if a.refineEditor.Text() != "make it colder" {
+		t.Fatalf("refine editor must pre-fill with the part refine, got %q", a.refineEditor.Text())
 	}
 }
