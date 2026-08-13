@@ -232,13 +232,16 @@ func TestAssembleContinuation(t *testing.T) {
 	}
 	user := assembled.Messages[len(assembled.Messages)-1].Content
 	for _, phrase := range []string{
-		"video continuation",
-		"Source video to continue",
+		"new segment of a multi-part story",
+		"Reference from the previous part",
 		"<Video 2>",
+		"generate NEW content",
+		"Do not extend, reuse, or re-render",
 		"Continuity state",
 		"carry forward every change",
 		"a hammer picked up and held in hand",
 		"a broken window",
+		"Opening state",
 		"camera holds on his face",
 		"Previous part prompt",
 		"The hero follows the clue into the warehouse.",
@@ -246,10 +249,8 @@ func TestAssembleContinuation(t *testing.T) {
 		"A detective noir set in 1940s New York.",
 		"Refinement instruction",
 		"make the lighting colder",
-		"Cite <Video 2> in retention_analysis",
-		"It is NOT an audio source",
+		"not an audio source",
 		"must not be cited as audio reference",
-		"MUST open with exactly the final state",
 	} {
 		if !strings.Contains(user, phrase) {
 			t.Errorf("continuation user message missing %q", phrase)

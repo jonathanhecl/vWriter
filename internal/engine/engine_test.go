@@ -393,11 +393,13 @@ func TestGenerateContinuationReusesSourceVideoLabel(t *testing.T) {
 	}
 	req2 := string(fake.requests[1])
 	for _, phrase := range []string{
-		"video continuation",
-		"Source video to continue",
-		`Video 2\u003e`, // the source video label (json-escaped angle bracket)
-		"warehouse",     // the user-written idea for this part
-		`"images":["`,   // real media re-attached
+		"new segment of a multi-part story",
+		"Reference from the previous part",
+		`Video 2\u003e`, // the previous-part reference label (json-escaped angle bracket)
+		"generate NEW content",
+		"Do not extend, reuse, or re-render",
+		"warehouse",   // the user-written idea for this part
+		`"images":["`, // real media re-attached
 	} {
 		if !strings.Contains(req2, phrase) {
 			t.Errorf("continuation request missing %q", phrase)

@@ -388,35 +388,33 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 	}
 
 	declared, inputs := declaredReferences(req.Manifest, false)
-	contract := "This part is a new, independent video of the same duration: timestamps restart at 00:00 " +
-		"and must remain within the duration. It is a continuation of " + source + ", so it MUST open with " +
-		"exactly the final state of " + source + " described below and continue the story forward from it, " +
-		"keeping subjects, scene, style, camera treatment, and continuity consistent with the source. " +
-		source + " is the source video being continued for its visual motion, subjects, scene, and temporal " +
-		"structure. It is NOT an audio source: its audio does not carry over, and " + source + " must not be " +
-		"cited as audio reference or audio reuse. Unless an uploaded audio asset exists, music belongs only " +
-		"in non_diegetic_music. " +
-		finalContract(brief+" continue the story as a video continuation of the previous part.")
+	contract := "This segment is a new, independent video of the same duration: timestamps restart at 00:00 " +
+		"and must remain within the duration. It MUST open with exactly the opening state below, then develop " +
+		"NEW content from it following " + source + "'s style, color palette, character appearance, clothing, " +
+		"scene, and props. It must NOT extend, reuse, replay, or re-render the previous video's footage; only " +
+		"carry the state, visual language, and subject appearance forward. " + source + " is a style and " +
+		"appearance reference, not an audio source: its audio does not carry over, and it must not be cited as " +
+		"audio reference or audio reuse. Unless an uploaded audio asset exists, music belongs only in " +
+		"non_diegetic_music. " +
+		finalContract(brief+" generate a new segment that follows the previous part's reference.")
 	userContent := fmt.Sprintf(
-		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\nPart: video continuation of a multi-part story\n\n"+
+		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\nPart: new segment of a multi-part story\n\n"+
 			"Reference manifest (real media assets, re-attached for consistency):\n%s\n\n"+
-			"Source video to continue:\n%s — the video generated from the previous part of this story. "+
-			"It is the source being continued; it is not an uploaded asset, so no file is attached. "+
-			"Its exact content is the previous part's prompt below. Cite %s in retention_analysis as the "+
-			"source video (fully_preserved) and keep referencing it for visual continuity.\n\n"+
+			"Reference from the previous part:\n%s — the video generated from the previous part of this story. "+
+			"It is not an uploaded asset, so no file is attached; its exact content is the previous part's prompt below. "+
+			"Follow its style, color palette, character appearance, clothing, and scene, but generate NEW content. "+
+			"Do not extend, reuse, or re-render the previous video's frames.\n\n"+
 			"Continuity state — carry forward every change that happened by the end of %s:\n"+
 			"Anything a character acquired, removed, or now holds (a hat put on, a helmet taken off, a jacket worn, "+
 			"a hammer picked up and held in hand) and any change to the place (a broken window, a collapsed shelf, "+
-			"moved objects, altered lighting) must already be present in the opening of this part. The opening state "+
-			"below is the exact state %s ends in; describe it fully in the new part's opening so every change is "+
-			"visibly carried over and subjects stay consistent.\n\n"+
-			"How %s ends — this part MUST open with exactly this state:\n%s\n\n"+
-			"Previous part prompt (this is the exact content of %s; keep every subject, scene, style, and continuity element consistent):\n%s\n\n"+
+			"moved objects, altered lighting) must already be present in the opening of this segment.\n\n"+
+			"Opening state — this segment MUST open with exactly this state:\n%s\n\n"+
+			"Previous part prompt (the exact content of %s; keep character appearance, style, colors, and continuity consistent):\n%s\n\n"+
 			"%s"+
 			"Creative brief for this part:\n%s\n\n"+
 			"%s%s",
 		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
-		source, source, source, source, source, ending, source, previous,
+		source, source, ending, source, previous,
 		storyBriefBlock(req.StoryBrief), brief, refineBlock(req.RefineInstruction), contract,
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
