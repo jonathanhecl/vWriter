@@ -56,6 +56,7 @@ type Audit struct {
 	// Filled by the caller (engine) after tag and constraint checks.
 	MissingReferenceTags         []string `json:"missing_reference_tags,omitempty"`
 	UnexpectedReferenceTags      []string `json:"unexpected_reference_tags,omitempty"`
+	UnexpectedSubjects           []string `json:"unexpected_subjects,omitempty"`
 	UnexpectedAudioTask          bool     `json:"unexpected_audio_task,omitempty"`
 	ExplicitConstraintViolations []string `json:"explicit_constraint_violations,omitempty"`
 	UndeclaredMediaMentions      []string `json:"undeclared_media_mentions,omitempty"`

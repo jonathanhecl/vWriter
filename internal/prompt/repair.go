@@ -10,6 +10,7 @@ import (
 
 var (
 	referenceTagPattern    = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio)\s+(\d+)\s*>`)
+	subjectTagPattern      = regexp.MustCompile(`(?i)<\s*Subject\s+(\d+)\s*>`)
 	cameraMovement         = regexp.MustCompile(`(?i)\b(?:zoom(?:s|ed|ing)?|pan(?:s|ned|ning)?|doll(?:y|ies|ied|ying)|tracking shot|camera\s+(?:moves?|pulls?|pushes?|pans?|zooms?|tracks?|dollies?))\b`)
 	noCutsBrief            = regexp.MustCompile(`(?i)\b(?:no cuts?|without cuts?|single continuous shot|one continuous shot)\b`)
 	staticCameraBrief      = regexp.MustCompile(`(?i)\b(?:static|locked(?:-off)?|fixed)\s+camera\b|\bno camera movement\b`)
@@ -29,6 +30,16 @@ func ReferenceTags(text string) map[string]bool {
 	for _, groups := range referenceTagPattern.FindAllStringSubmatch(text, -1) {
 		kind := strings.ToUpper(groups[1][:1]) + strings.ToLower(groups[1][1:])
 		tags[fmt.Sprintf("<%s %s>", kind, groups[2])] = true
+	}
+	return tags
+}
+
+// SubjectTags extracts the normalized numbered subject tags of a text,
+// e.g. "<Subject 1>".
+func SubjectTags(text string) map[string]bool {
+	tags := map[string]bool{}
+	for _, groups := range subjectTagPattern.FindAllStringSubmatch(text, -1) {
+		tags["<Subject "+groups[1]+">"] = true
 	}
 	return tags
 }
@@ -73,10 +84,10 @@ func UnexpectedAudioTask(taskLabel string, expectedTags map[string]bool) bool {
 	return audioTaskLabel.MatchString(taskLabel)
 }
 
-// SanitizePrompt removes every line that references a numbered media tag not
-// in the expected set — an invented asset such as <Audio 1> when no audio was
-// uploaded. It is a deterministic last-resort guard applied after the repair
-// pass so the deliverable never cites media the user did not send.
+// SanitizePrompt removes every line that references a numbered media or
+// subject tag not in the expected set — an invented asset such as <Audio 1>
+// or <Subject 3>. It is a deterministic last-resort guard applied after the
+// repair pass so the deliverable never cites media the user did not send.
 func SanitizePrompt(text string, expected map[string]bool) string {
 	lines := strings.Split(text, "\n")
 	out := make([]string, 0, len(lines))
@@ -94,12 +105,31 @@ func SanitizePrompt(text string, expected map[string]bool) string {
 	return strings.Join(out, "\n")
 }
 
-// lineReferencesUndeclaredTag reports whether a line contains a <Picture N>,
-// <Video N>, or <Audio N> tag that is not in the expected set.
+// AllowedTags merges the expected media tags and subject tags into one set
+// used by SanitizePrompt.
+func AllowedTags(mediaTags, subjectTags map[string]bool) map[string]bool {
+	allowed := make(map[string]bool, len(mediaTags)+len(subjectTags))
+	for tag := range mediaTags {
+		allowed[tag] = true
+	}
+	for tag := range subjectTags {
+		allowed[tag] = true
+	}
+	return allowed
+}
+
+// lineReferencesUndeclaredTag reports whether a line contains a media or
+// subject tag that is not in the expected set.
 func lineReferencesUndeclaredTag(line string, expected map[string]bool) bool {
 	for _, groups := range referenceTagPattern.FindAllStringSubmatch(line, -1) {
 		kind := strings.ToUpper(groups[1][:1]) + strings.ToLower(groups[1][1:])
 		tag := fmt.Sprintf("<%s %s>", kind, groups[2])
+		if !expected[tag] {
+			return true
+		}
+	}
+	for _, groups := range subjectTagPattern.FindAllStringSubmatch(line, -1) {
+		tag := "<Subject " + groups[1] + ">"
 		if !expected[tag] {
 			return true
 		}
@@ -180,6 +210,9 @@ func AuditFailures(audit *Audit) []string {
 	}
 	if len(audit.UnexpectedReferenceTags) > 0 {
 		failures = append(failures, "unexpected reference tags: "+strings.Join(audit.UnexpectedReferenceTags, ", "))
+	}
+	if len(audit.UnexpectedSubjects) > 0 {
+		failures = append(failures, "unexpected subject tags: "+strings.Join(audit.UnexpectedSubjects, ", "))
 	}
 	if audit.UnexpectedAudioTask {
 		failures = append(failures, "audio reference/reuse declared without an uploaded audio asset")

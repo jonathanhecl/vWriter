@@ -123,18 +123,31 @@ func TestUndeclaredMediaMentions(t *testing.T) {
 }
 
 func TestSanitizePrompt(t *testing.T) {
-	imagesOnly := map[string]bool{"<Picture 1>": true}
-	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nretention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved - the invented voice track.\n\noverall_soundscape:\n<Video 2> drives the rhythm.\n\nnon_diegetic_music:\nN/A"
+	allowed := map[string]bool{"<Picture 1>": true, "<Subject 1>": true}
+	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nretention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved - the invented voice track.\n\noverall_soundscape:\n<Video 2> drives the rhythm.\n<Subject 3> appears unexpectedly.\n\nnon_diegetic_music:\nN/A"
 
-	got := SanitizePrompt(prompt, imagesOnly)
+	got := SanitizePrompt(prompt, allowed)
 	if strings.Contains(got, "<Audio 1>") {
 		t.Fatalf("invented audio tag must be removed, got %q", got)
 	}
 	if strings.Contains(got, "<Video 2>") {
 		t.Fatalf("invented video tag must be removed, got %q", got)
 	}
+	if strings.Contains(got, "<Subject 3>") {
+		t.Fatalf("invented subject tag must be removed, got %q", got)
+	}
 	if !strings.Contains(got, "<Picture 1>") || !strings.Contains(got, "<Subject 1>") {
 		t.Fatalf("declared references must survive, got %q", got)
+	}
+}
+
+func TestSubjectTags(t *testing.T) {
+	got := SubjectTags("subject_definitions:\n<Subject 1> comes from <Picture 1>.\n<Subject 2> follows.\n")
+	if len(got) != 2 || !got["<Subject 1>"] || !got["<Subject 2>"] {
+		t.Fatalf("SubjectTags = %v", got)
+	}
+	if got := SubjectTags("<Picture 1> and <Audio 2> only"); len(got) != 0 {
+		t.Fatalf("media tags must not be counted as subjects: %v", got)
 	}
 }
 

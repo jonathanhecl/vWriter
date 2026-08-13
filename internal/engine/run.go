@@ -44,10 +44,11 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 		return result
 	}
 	// The repair pass did not fully resolve the violations. As a deterministic
-	// last-resort guard, strip every line referencing media that was not
-	// uploaded (e.g. an invented <Audio N>) so the deliverable never cites
-	// assets the user did not send.
-	sanitized := prompt.SanitizePrompt(repairedText, expected)
+	// last-resort guard, strip every line referencing media or subjects that
+	// were not part of the story (e.g. an invented <Audio 1> or <Subject 3>)
+	// so the deliverable never cites things the user did not provide.
+	allowed := prompt.AllowedTags(expected, prompt.SubjectTags(userMessageContent(assembled)))
+	sanitized := prompt.SanitizePrompt(repairedText, allowed)
 	if sanitized != repairedText {
 		result.Prompt = sanitized
 		result.Audit = enrichAudit(assembled, sanitized)
@@ -56,11 +57,12 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 	return result
 }
 
-// enrichAudit fills the tag, audio-task, and explicit-constraint checks.
+// enrichAudit fills the tag, subject, audio-task, and explicit-constraint checks.
 func enrichAudit(assembled *prompt.Assembled, text string) *prompt.Audit {
 	audit := prompt.AuditPrompt(text, assembled.Input.DurationSeconds,
 		prompt.CameraStructureRequested(intentText(assembled)))
-	expected := prompt.ReferenceTags(userMessageContent(assembled))
+	request := userMessageContent(assembled)
+	expected := prompt.ReferenceTags(request)
 	actual := prompt.ReferenceTags(text)
 	for tag := range expected {
 		if !actual[tag] {
@@ -72,10 +74,23 @@ func enrichAudit(assembled *prompt.Assembled, text string) *prompt.Audit {
 			audit.UnexpectedReferenceTags = append(audit.UnexpectedReferenceTags, tag)
 		}
 	}
+	// Subjects are bounded by the story so far: in a continuation the request
+	// carries the previous part's prompt with its subject definitions, so any
+	// <Subject N> beyond that set is invented. A fresh generation defines them
+	// freely, so the check only applies when a prior subject set exists.
+	expectedSubjects := prompt.SubjectTags(request)
+	if len(expectedSubjects) > 0 {
+		for tag := range prompt.SubjectTags(text) {
+			if !expectedSubjects[tag] {
+				audit.UnexpectedSubjects = append(audit.UnexpectedSubjects, tag)
+			}
+		}
+	}
 	audit.UnexpectedAudioTask = prompt.UnexpectedAudioTask(audit.TaskLabel, expected)
 	audit.ExplicitConstraintViolations = prompt.ExplicitConstraintViolations(intentText(assembled), text)
 	audit.UndeclaredMediaMentions = prompt.UndeclaredMediaMentions(text, expected)
 	if len(audit.MissingReferenceTags) > 0 || len(audit.UnexpectedReferenceTags) > 0 ||
+		len(audit.UnexpectedSubjects) > 0 ||
 		audit.UnexpectedAudioTask || len(audit.ExplicitConstraintViolations) > 0 ||
 		len(audit.UndeclaredMediaMentions) > 0 {
 		audit.RepairRequired = true
