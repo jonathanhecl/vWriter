@@ -113,7 +113,7 @@ func TestAssembleRequest(t *testing.T) {
 	user := assembled.Messages[3]
 	if user.Role != "user" || !strings.Contains(user.Content, "Mode: Reference") ||
 		!strings.Contains(user.Content, "<Picture 1>: hero.jpg (image)") ||
-		!strings.Contains(user.Content, "strictly before the end of the clip") {
+		!strings.Contains(user.Content, "keep the final instant clear") {
 		t.Fatalf("user message = %q", user.Content)
 	}
 	if len(assembled.MediaInputs) != 1 || assembled.MediaInputs[0].ImagePath != "prepared.jpg" {
@@ -266,7 +266,7 @@ func TestAssembleContinuation(t *testing.T) {
 		"make the lighting colder",
 		"not an audio source",
 		"must not be cited as audio reference",
-		"strictly before the end of the clip",
+		"keep the final instant clear",
 	} {
 		if !strings.Contains(user, phrase) {
 			t.Errorf("continuation user message missing %q", phrase)
@@ -359,7 +359,7 @@ func TestAssembleRefinement(t *testing.T) {
 	}
 	user := assembled.Messages[len(assembled.Messages)-1].Content
 	for _, phrase := range []string{"Rewrite the current H3 prompt", "media is intentionally not attached",
-		"first-pass observation", "Make the lighting colder.", "strictly before the end of the clip"} {
+		"first-pass observation", "Make the lighting colder.", "keep the final instant clear"} {
 		if !strings.Contains(user, phrase) {
 			t.Errorf("refinement user message missing %q", phrase)
 		}

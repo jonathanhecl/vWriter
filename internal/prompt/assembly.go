@@ -111,13 +111,10 @@ func refineBlock(refine string) string {
 	return "Refinement instruction (apply it to the generation):\n" + refine + "\n\n"
 }
 
-// durationRule reminds the model that every event must happen strictly before
-// the clip ends, never on or past the final second.
+// durationRule reminds the model that events need room to land before the
+// clip ends, keeping the final half second clear.
 func durationRule(durationSeconds float64) string {
-	if durationSeconds <= 0 {
-		return ""
-	}
-	return fmt.Sprintf("The target video is %g seconds long: every event, action, cut, and shot change must occur strictly before the end of the clip (before 00:%02d.000); nothing may happen on or past the final second. ", durationSeconds, int(durationSeconds))
+	return fmt.Sprintf("The target video is %g seconds long: every event, action, cut, and shot change must occur with enough time to land before the clip ends. Schedule the last beat no later than %s and keep the final instant clear. ", durationSeconds, formatSeconds(durationSeconds-0.5))
 }
 
 var explicitEditPattern = regexp.MustCompile(`(?is)\b(?:edit(?:ing)?|continue|continuation|extend|remix|re-cut)\b.{0,40}\bvideo\b|\bvideo\s+editing\b`)

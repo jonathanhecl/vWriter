@@ -28,23 +28,27 @@ func TestLooseSpeechLines(t *testing.T) {
 }
 
 func TestClampTimestamps(t *testing.T) {
-	text := "detailed_description:\n[Shot 1] The hero walks in.\n[Shot 2] At 00:04.500, the camera cuts to the window. By 00:10.000, he leaves. At 00:10.500, the door closes. At 01:30.000, all is quiet.\n"
+	text := "detailed_description:\n[Shot 1] The hero walks in.\n[Shot 2] At 00:04.500, the camera cuts to the window. By 00:09.999, he leaves. At 00:10.000, the door closes. At 01:30.000, all is quiet.\n"
 	got := ClampTimestamps(text, 10)
-	for _, bad := range []string{"00:10.000", "00:10.500", "00:12.000", "01:30.000"} {
+	for _, bad := range []string{"00:09.999", "00:10.000", "00:10.500", "00:12.000", "01:30.000"} {
 		if strings.Contains(got, bad) {
-			t.Fatalf("timestamp %s must be clamped (strictly before the end), got %q", bad, got)
+			t.Fatalf("timestamp %s must be clamped (keep room before the end), got %q", bad, got)
 		}
 	}
-	if !strings.Contains(got, "00:09.999") {
-		t.Fatalf("clamped value must be the last valid moment (00:09.999), got %q", got)
+	if !strings.Contains(got, "00:09.500") {
+		t.Fatalf("clamped value must be the last safe moment (00:09.500), got %q", got)
 	}
 	if !strings.Contains(got, "00:04.500") {
 		t.Fatalf("in-range timestamps must stay untouched, got %q", got)
 	}
-	// Fractional duration: 9.5s -> last valid moment is 00:09.499.
+	// Exactly at the safe margin is kept.
+	if got := ClampTimestamps("[Shot 2] At 00:09.500, fine.", 10); !strings.Contains(got, "00:09.500") {
+		t.Fatalf("margin timestamp must stay, got %q", got)
+	}
+	// Fractional duration: 9.5s -> last safe moment is 00:09.000.
 	frac := ClampTimestamps("[Shot 2] At 00:09.500, the shot ends.", 9.5)
-	if !strings.Contains(frac, "00:09.499") {
-		t.Fatalf("fractional clamp = %q, want 00:09.499", frac)
+	if !strings.Contains(frac, "00:09.000") {
+		t.Fatalf("fractional clamp = %q, want 00:09.000", frac)
 	}
 	if got := ClampTimestamps("[Shot 1] At 00:05.000, ok.", 10); got != "[Shot 1] At 00:05.000, ok." {
 		t.Fatalf("clean timestamps must not change, got %q", got)

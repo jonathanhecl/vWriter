@@ -471,8 +471,8 @@ func TestRefineClampsTimestamps(t *testing.T) {
 	if strings.Contains(result.Prompt, "00:12.000") {
 		t.Fatalf("refine output must clamp out-of-range timestamps, got %q", result.Prompt)
 	}
-	if !strings.Contains(result.Prompt, "00:09.999") {
-		t.Fatalf("refine output must use the last valid moment, got %q", result.Prompt)
+	if !strings.Contains(result.Prompt, "00:09.500") {
+		t.Fatalf("refine output must use the last safe moment, got %q", result.Prompt)
 	}
 }
 
