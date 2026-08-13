@@ -40,7 +40,7 @@ func (a *App) layoutToasts(gtx layout.Context) layout.Dimensions {
 			a.copyErrorToast(gtx, index)
 			return layout.Dimensions{}
 		}
-		if !a.toasts[index].isError && a.toastClicks[index].dismiss.Clicked(gtx) {
+		if a.toastClicks[index].dismiss.Clicked(gtx) {
 			a.removeToast(index)
 			return layout.Dimensions{}
 		}
@@ -166,8 +166,7 @@ func (a *App) layoutToast(gtx layout.Context, index int) layout.Dimensions {
 		)
 	}
 
-	if toast.isError {
-		return content(gtx)
-	}
+	// Both error and success toasts dismiss on a click anywhere on the body;
+	// the Copy button (a nested clickable) keeps priority when clicked.
 	return a.toastClicks[index].dismiss.Layout(gtx, content)
 }
