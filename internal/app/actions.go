@@ -639,6 +639,44 @@ func (a *App) saveCurrentPreset(name string) {
 	a.window.Invalidate()
 }
 
+// createNewPreset creates an empty preset with the given name and loads it,
+// clearing the current story so the user can start a fresh one from scratch.
+func (a *App) createNewPreset(name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Untitled Template"
+	}
+	for _, existing := range a.presetStore.List() {
+		if existing.Name == name {
+			a.mu.Lock()
+			a.pushToast("A preset with that name already exists. Choose a different name.", "", true)
+			a.mu.Unlock()
+			return
+		}
+	}
+	p, err := a.presetStore.AddOrUpdate(name, "", 10, "16:9", "", "", nil, nil)
+	if err != nil {
+		a.mu.Lock()
+		a.pushToast("Failed to create preset: "+err.Error(), "", true)
+		a.mu.Unlock()
+		return
+	}
+	a.savingPreset = false
+	a.newPreset = false
+	a.presetNameEditor.SetText("")
+	presets := a.presetStore.List()
+	for i, preset := range presets {
+		if preset.ID == p.ID {
+			a.loadPreset(i)
+			break
+		}
+	}
+	a.mu.Lock()
+	a.pushToast(fmt.Sprintf("Created new preset '%s'. Start writing your story.", p.Name), "", false)
+	a.mu.Unlock()
+	a.window.Invalidate()
+}
+
 // loadPreset loads a preset into the editor fields and restores saved media assets.
 func (a *App) loadPreset(index int) {
 	presets := a.presetStore.List()

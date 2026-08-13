@@ -134,7 +134,9 @@ type App struct {
 	presetIndex      int
 	savePresetBtn    widget.Clickable
 	deletePresetBtn  widget.Clickable
+	newPresetBtn     widget.Clickable
 	savingPreset     bool
+	newPreset        bool
 	presetNameEditor widget.Editor
 	confirmSaveBtn   widget.Clickable
 	cancelSaveBtn    widget.Clickable

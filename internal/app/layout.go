@@ -139,13 +139,21 @@ func (a *App) layoutSavePresetModal(gtx layout.Context) layout.Dimensions {
 				return card(gtx, 18, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							l := material.Label(a.theme, 16, "Save Creative Template")
+							title := "Save Creative Template"
+							if a.newPreset {
+								title = "New Preset"
+							}
+							l := material.Label(a.theme, 16, title)
 							l.Color = colorText
 							return l.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Top: 4, Bottom: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								l := material.Label(a.theme, 12, "Enter a name for this prompt template:")
+								subtitle := "Enter a name for this prompt template:"
+								if a.newPreset {
+									subtitle = "Name the new blank template. It clears the current story so you can start from scratch:"
+								}
+								l := material.Label(a.theme, 12, subtitle)
 								l.Color = colorTextDim
 								return l.Layout(gtx)
 							})
@@ -163,7 +171,11 @@ func (a *App) layoutSavePresetModal(gtx layout.Context) layout.Dimensions {
 										})
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.smallButton(gtx, &a.confirmSaveBtn, "Save")
+										label := "Save"
+										if a.newPreset {
+											label = "Create"
+										}
+										return a.smallButton(gtx, &a.confirmSaveBtn, label)
 									}),
 								)
 							})

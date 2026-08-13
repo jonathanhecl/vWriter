@@ -47,7 +47,14 @@ func (a *App) handleEvents(gtx layout.Context) {
 		a.autoSaveCurrentPreset()
 	}
 	if a.savePresetBtn.Clicked(gtx) {
+		a.newPreset = false
 		a.savingPreset = true
+		a.window.Invalidate()
+	}
+	if a.newPresetBtn.Clicked(gtx) {
+		a.newPreset = true
+		a.savingPreset = true
+		a.presetNameEditor.SetText("")
 		a.window.Invalidate()
 	}
 	if a.deletePresetBtn.Clicked(gtx) {
@@ -55,10 +62,15 @@ func (a *App) handleEvents(gtx layout.Context) {
 	}
 	if a.cancelSaveBtn.Clicked(gtx) {
 		a.savingPreset = false
+		a.newPreset = false
 		a.window.Invalidate()
 	}
 	if a.confirmSaveBtn.Clicked(gtx) {
-		a.saveCurrentPreset(a.presetNameEditor.Text())
+		if a.newPreset {
+			a.createNewPreset(a.presetNameEditor.Text())
+		} else {
+			a.saveCurrentPreset(a.presetNameEditor.Text())
+		}
 	}
 	if a.generateBtn.Clicked(gtx) {
 		a.mu.Lock()

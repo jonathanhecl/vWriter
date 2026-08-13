@@ -155,6 +155,11 @@ func (a *App) layoutPresetsSection(gtx layout.Context) layout.Dimensions {
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: 8, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.smallButton(gtx, &a.newPresetBtn, "New preset")
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: 8, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								return a.smallButton(gtx, &a.savePresetBtn, "Save preset")
 							})
 						}),
