@@ -299,6 +299,28 @@ func TestAssembleContinuationValidation(t *testing.T) {
 	}
 }
 
+func TestAssembleContinuationDeclaresSourceVideo(t *testing.T) {
+	req := validContinuationRequest()
+	req.Manifest.Assets = append(req.Manifest.Assets, &media.Asset{
+		ID: "v1", Type: media.Video, Filename: "ref.mp4", Reference: "<Video 1>", Duration: 8, AnalysisRequested: true,
+	})
+	req.Manifest.Counts = map[media.AssetType]int{media.Image: 1, media.Video: 1}
+	assembled, err := AssembleContinuation(req)
+	if err != nil {
+		t.Fatalf("AssembleContinuation: %v", err)
+	}
+	user := assembled.Messages[len(assembled.Messages)-1].Content
+	tags := ReferenceTags(user)
+	if !tags["<Video 1>"] || !tags["<Video 2>"] {
+		t.Fatalf("both the real video and the source video must be in the allowed tags, got %v", tags)
+	}
+	output := "retention_analysis:\n<Video 1>: fully_preserved.\n<Video 2>: fully_preserved - the source video being continued.\n"
+	got := SanitizeMediaPrompt(output, tags)
+	if !strings.Contains(got, "<Video 1>") || !strings.Contains(got, "<Video 2>") {
+		t.Fatalf("source video references must survive sanitize, got %q", got)
+	}
+}
+
 func TestAssembleRefinement(t *testing.T) {
 	assembled, err := AssembleRefinement(RefineRequest{
 		Manifest:          validManifest(),

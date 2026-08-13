@@ -123,20 +123,25 @@ func SanitizeMediaPrompt(text string, allowedMedia map[string]bool) string {
 	return strings.Join(out, "\n")
 }
 
-// lineReferencesInventedMedia reports whether a line contains a malformed
-// placeholder or a media tag not in the allowed set.
+// lineReferencesInventedMedia reports whether a line references media that is
+// not in the allowed set. A line is only "invented" when it references media
+// and none of those references are allowed, so a line that also cites an
+// allowed reference (e.g. the source video) is always preserved.
 func lineReferencesInventedMedia(line string, allowedMedia map[string]bool) bool {
 	if malformedMediaPattern.MatchString(line) {
 		return true
 	}
+	hasMedia := false
+	hasAllowed := false
 	for _, groups := range referenceTagPattern.FindAllStringSubmatch(line, -1) {
+		hasMedia = true
 		kind := strings.ToUpper(groups[1][:1]) + strings.ToLower(groups[1][1:])
 		tag := fmt.Sprintf("<%s %s>", kind, groups[2])
-		if !allowedMedia[tag] {
-			return true
+		if allowedMedia[tag] {
+			hasAllowed = true
 		}
 	}
-	return false
+	return hasMedia && !hasAllowed
 }
 
 // ExplicitConstraintViolations checks hard user constraints from the brief

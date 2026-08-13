@@ -58,12 +58,13 @@ type SystemPrompt struct {
 
 // AssembledInput echoes the validated request fields.
 type AssembledInput struct {
-	DurationSeconds float64        `json:"duration_seconds,omitempty"`
-	AspectRatio     string         `json:"aspect_ratio,omitempty"`
-	CreativeBrief   string         `json:"creative_brief,omitempty"`
-	CurrentPrompt   string         `json:"current_prompt,omitempty"`
-	Instruction     string         `json:"instruction,omitempty"`
-	Manifest        media.Manifest `json:"media_manifest"`
+	DurationSeconds  float64        `json:"duration_seconds,omitempty"`
+	AspectRatio      string         `json:"aspect_ratio,omitempty"`
+	CreativeBrief    string         `json:"creative_brief,omitempty"`
+	CurrentPrompt    string         `json:"current_prompt,omitempty"`
+	Instruction      string         `json:"instruction,omitempty"`
+	SourceVideoLabel string         `json:"source_video_label,omitempty"`
+	Manifest         media.Manifest `json:"media_manifest"`
 }
 
 // GenerateRequest is the input to AssembleRequest.
@@ -425,10 +426,11 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 		Messages:      append(messages, Message{Role: "user", Content: userContent}),
 		MediaInputs:   inputs,
 		Input: AssembledInput{
-			DurationSeconds: req.DurationSeconds,
-			AspectRatio:     req.AspectRatio,
-			CreativeBrief:   brief,
-			Manifest:        req.Manifest,
+			DurationSeconds:  req.DurationSeconds,
+			AspectRatio:      req.AspectRatio,
+			CreativeBrief:    brief,
+			SourceVideoLabel: source,
+			Manifest:         req.Manifest,
 		},
 	}, nil
 }

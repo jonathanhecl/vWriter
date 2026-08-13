@@ -415,6 +415,40 @@ func TestGenerateContinuationReusesSourceVideoLabel(t *testing.T) {
 	}
 }
 
+func TestRegeneratePart2KeepsSourceVideoReference(t *testing.T) {
+	// Session has no real videos, so the source video label is <Video 1>.
+	// The regenerated part 2 must keep its reference to the previous part's
+	// video even though it is not an uploaded asset.
+	fake := &fakeOllama{t: t, responses: []string{
+		buildPrompt(validPrompt, 400),
+		buildPrompt(strings.Replace(continuationPrompt, "<Video 2>", "<Video 1>", 1), 400),
+	}}
+	eng, session := testRig(t, fake)
+
+	part1, err := eng.Generate(generateParams(session))
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	part2, err := eng.GenerateContinuation(ContinuationParams{
+		SessionID:        session,
+		Model:            "vision-model:latest",
+		PartBrief:        "The hero follows the clue into the warehouse.",
+		DurationSeconds:  10,
+		AspectRatio:      "16:9",
+		PreviousPrompt:   part1.Prompt,
+		PreviousEnding:   prompt.ExtractEndingState(part1.Prompt),
+		SourceVideoLabel: "<Video 1>",
+		ContextProfile:   "auto",
+		KeepModelLoaded:  true,
+	})
+	if err != nil {
+		t.Fatalf("GenerateContinuation: %v", err)
+	}
+	if !strings.Contains(part2.Prompt, "<Video 1>") {
+		t.Fatalf("source video reference must survive sanitize, got %q", part2.Prompt)
+	}
+}
+
 func TestRefineWithoutMedia(t *testing.T) {
 	fake := &fakeOllama{t: t, responses: []string{buildPrompt(validPrompt, 420)}}
 	eng, session := testRig(t, fake)

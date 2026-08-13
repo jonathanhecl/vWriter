@@ -140,6 +140,17 @@ func TestSanitizeMediaPrompt(t *testing.T) {
 	}
 }
 
+func TestSanitizeMediaPromptKeepsMixedAllowedLine(t *testing.T) {
+	// A line that cites an allowed reference (the source video) alongside an
+	// invented one must be preserved so valid references are never lost.
+	allowedMedia := map[string]bool{"<Video 1>": true}
+	text := "retention_analysis:\n<Video 1> is continued while <Audio 3> plays underneath.\n"
+	got := SanitizeMediaPrompt(text, allowedMedia)
+	if !strings.Contains(got, "<Video 1>") {
+		t.Fatalf("allowed reference must survive even on a mixed line, got %q", got)
+	}
+}
+
 func TestSanitizeMediaPromptNoChange(t *testing.T) {
 	allowedMedia := map[string]bool{"<Picture 1>": true, "<Audio 1>": true}
 	text := "retention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved.\n"

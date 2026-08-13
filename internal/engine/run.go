@@ -19,6 +19,12 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 	onPhase func(string), onProgress func(int),
 ) *Result {
 	expected := prompt.ReferenceTags(userMessageContent(assembled))
+	// The source video of a continuation is a first-class reference: even
+	// though it is not an uploaded asset, its label must always survive the
+	// cleanup, so parts keep referencing the previous part's video.
+	if source := strings.TrimSpace(assembled.Input.SourceVideoLabel); source != "" {
+		expected[source] = true
+	}
 	sanitized := prompt.SanitizeMediaPrompt(text, expected)
 	if strings.TrimSpace(sanitized) == "" {
 		sanitized = text
