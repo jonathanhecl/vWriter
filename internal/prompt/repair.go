@@ -101,18 +101,17 @@ func UnexpectedAudioTask(taskLabel string, expectedTags map[string]bool) bool {
 	return audioTaskLabel.MatchString(taskLabel)
 }
 
-// SanitizePrompt removes every line that references a numbered media or
-// subject tag not in the expected sets — an invented asset such as <Audio 1>
-// or <Subject 3>, or a malformed placeholder such as <Video None>. It is a
-// deterministic guard: media is always constrained to the expected set, while
-// subjects are only constrained when a prior subject set exists (a fresh
-// generation defines them freely).
-func SanitizePrompt(text string, allowedMedia, allowedSubjects map[string]bool) string {
+// SanitizeMediaPrompt removes short lines that reference media the user did
+// not provide (an invented <Audio 1> or a malformed <Video None>). Only
+// lines that are predominantly such a reference — retention/definition lines
+// and other short lines — are dropped; long prose is never touched, so valid
+// content is never destroyed. Subjects are never removed.
+func SanitizeMediaPrompt(text string, allowedMedia map[string]bool) string {
 	lines := strings.Split(text, "\n")
 	out := make([]string, 0, len(lines))
 	changed := false
 	for _, line := range lines {
-		if lineReferencesUndeclaredTag(line, allowedMedia, allowedSubjects) {
+		if lineReferencesInventedMedia(line, allowedMedia) && len([]rune(strings.TrimSpace(line))) <= 150 {
 			changed = true
 			continue
 		}
@@ -124,26 +123,16 @@ func SanitizePrompt(text string, allowedMedia, allowedSubjects map[string]bool) 
 	return strings.Join(out, "\n")
 }
 
-// lineReferencesUndeclaredTag reports whether a line contains a malformed
-// placeholder, a media tag not in the expected set, or — when a prior subject
-// set exists — a subject tag outside it.
-func lineReferencesUndeclaredTag(line string, allowedMedia, allowedSubjects map[string]bool) bool {
-	if malformedTagPattern.MatchString(line) {
+// lineReferencesInventedMedia reports whether a line contains a malformed
+// placeholder or a media tag not in the allowed set.
+func lineReferencesInventedMedia(line string, allowedMedia map[string]bool) bool {
+	if malformedMediaPattern.MatchString(line) {
 		return true
 	}
 	for _, groups := range referenceTagPattern.FindAllStringSubmatch(line, -1) {
 		kind := strings.ToUpper(groups[1][:1]) + strings.ToLower(groups[1][1:])
 		tag := fmt.Sprintf("<%s %s>", kind, groups[2])
 		if !allowedMedia[tag] {
-			return true
-		}
-	}
-	if len(allowedSubjects) == 0 {
-		return false
-	}
-	for _, groups := range subjectTagPattern.FindAllStringSubmatch(line, -1) {
-		tag := "<Subject " + groups[1] + ">"
-		if !allowedSubjects[tag] {
 			return true
 		}
 	}

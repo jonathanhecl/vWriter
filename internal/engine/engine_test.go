@@ -247,10 +247,11 @@ func TestGenerateHappyPath(t *testing.T) {
 	}
 }
 
-func TestGenerateRepairsBrokenOutput(t *testing.T) {
+func TestGenerateKeepsBrokenOutputIntact(t *testing.T) {
+	// No model-based repair runs; a structurally imperfect prompt is kept
+	// as-is so content is never destroyed.
 	fake := &fakeOllama{t: t, responses: []string{
 		buildPrompt(brokenPrompt, 400), // missing [Shot 1]
-		buildPrompt(validPrompt, 400),  // repair answer
 	}}
 	eng, session := testRig(t, fake)
 
@@ -258,14 +259,16 @@ func TestGenerateRepairsBrokenOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if !result.RepairAttempted || !result.RepairApplied {
-		t.Fatalf("repair = %+v", result)
+	if result.RepairAttempted {
+		t.Fatal("no model repair is expected anymore")
 	}
-	if !strings.Contains(result.Prompt, "[Shot 1]") {
-		t.Fatal("final prompt must be the repaired one")
+	if !strings.Contains(result.Prompt, "detailed_description") || !strings.Contains(result.Prompt, "visible") {
+		t.Fatalf("prompt content must be preserved, got %q", result.Prompt)
 	}
-	if !fake.seenRepair || !fake.seenGenerate {
-		t.Fatal("expected both a generation and a repair request")
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.requests) != 1 {
+		t.Fatalf("requests = %d, want a single generation (no repair)", len(fake.requests))
 	}
 }
 

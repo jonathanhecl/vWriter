@@ -122,13 +122,12 @@ func TestUndeclaredMediaMentions(t *testing.T) {
 	}
 }
 
-func TestSanitizePrompt(t *testing.T) {
+func TestSanitizeMediaPrompt(t *testing.T) {
 	allowedMedia := map[string]bool{"<Picture 1>": true}
-	allowedSubjects := map[string]bool{"<Subject 1>": true}
-	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nretention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved - the invented voice track.\n\noverall_soundscape:\n<Video 2> drives the rhythm.\n<Subject 3> appears unexpectedly.\n<Video None> is not specified as a structural source video.\n<Audio None> is not specified for audio content.\n\nnon_diegetic_music:\nN/A"
+	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nretention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved - the invented voice track.\n\noverall_soundscape:\n<Video 2> drives the rhythm.\n<Video None> is not specified as a structural source video.\n<Audio None> is not specified for audio content.\n\ndetailed_description:\n[Shot 1] The hero crosses the long warehouse floor, stepping past a long row of crates, and this full prose line must never be removed because it carries the story.\n\nnon_diegetic_music:\nN/A"
 
-	got := SanitizePrompt(prompt, allowedMedia, allowedSubjects)
-	for _, invented := range []string{"<Audio 1>", "<Video 2>", "<Subject 3>", "<Video None>", "<Audio None>"} {
+	got := SanitizeMediaPrompt(prompt, allowedMedia)
+	for _, invented := range []string{"<Audio 1>", "<Video 2>", "<Video None>", "<Audio None>"} {
 		if strings.Contains(got, invented) {
 			t.Fatalf("invented tag %q must be removed, got %q", invented, got)
 		}
@@ -136,16 +135,26 @@ func TestSanitizePrompt(t *testing.T) {
 	if !strings.Contains(got, "<Picture 1>") || !strings.Contains(got, "<Subject 1>") {
 		t.Fatalf("declared references must survive, got %q", got)
 	}
+	if !strings.Contains(got, "The hero crosses the long warehouse floor") {
+		t.Fatalf("long prose must never be removed, got %q", got)
+	}
 }
 
-func TestSanitizePromptFreshGenerationKeepsSubjects(t *testing.T) {
-	// A fresh generation has no prior subject set, so subject lines must
-	// survive even though <Subject N> is not in the allowed media set.
-	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n<Subject 2> stands behind.\n\ndetailed_description:\n[Shot 1] " + strings.Repeat("visible ", 30) + "\n\nnon_diegetic_music:\nN/A"
-	allowedMedia := map[string]bool{"<Picture 1>": true}
-	got := SanitizePrompt(prompt, allowedMedia, nil)
-	if !strings.Contains(got, "<Subject 1>") || !strings.Contains(got, "<Subject 2>") {
-		t.Fatalf("fresh generation must keep its subjects, got %q", got)
+func TestSanitizeMediaPromptNoChange(t *testing.T) {
+	allowedMedia := map[string]bool{"<Picture 1>": true, "<Audio 1>": true}
+	text := "retention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved.\n"
+	if got := SanitizeMediaPrompt(text, allowedMedia); got != text {
+		t.Fatalf("sanitize must not change a clean prompt, got %q", got)
+	}
+}
+
+func TestSanitizeMediaPromptKeepsLongProse(t *testing.T) {
+	// A long prose line mentioning an undeclared tag must never be dropped.
+	allowedMedia := map[string]bool{}
+	long := strings.Repeat("The camera pans slowly across the entire set ", 12) + "with <Video 9> in the background."
+	got := SanitizeMediaPrompt(long, allowedMedia)
+	if got != long {
+		t.Fatalf("long prose must be kept untouched, got %q", got)
 	}
 }
 
@@ -176,14 +185,6 @@ func TestMalformedTags(t *testing.T) {
 		if tag == "<Picture 1>" {
 			t.Errorf("valid tag must not be reported as malformed: %v", got)
 		}
-	}
-}
-
-func TestSanitizePromptNoChange(t *testing.T) {
-	allowedMedia := map[string]bool{"<Picture 1>": true, "<Audio 1>": true}
-	text := "retention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved.\n"
-	if got := SanitizePrompt(text, allowedMedia, nil); got != text {
-		t.Fatalf("sanitize must not change a clean prompt, got %q", got)
 	}
 }
 
