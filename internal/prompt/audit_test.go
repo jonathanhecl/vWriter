@@ -28,21 +28,23 @@ func TestLooseSpeechLines(t *testing.T) {
 }
 
 func TestClampTimestamps(t *testing.T) {
-	text := "detailed_description:\n[Shot 1] The hero walks in.\n[Shot 2] At 00:04.500, the camera cuts to the window. By 00:10.500, he leaves.\n[Shot 3] At 00:12.000, the door closes. At 01:30.000, all is quiet.\n"
+	text := "detailed_description:\n[Shot 1] The hero walks in.\n[Shot 2] At 00:04.500, the camera cuts to the window. By 00:10.000, he leaves. At 00:10.500, the door closes. At 01:30.000, all is quiet.\n"
 	got := ClampTimestamps(text, 10)
-	if strings.Contains(got, "00:10.500") || strings.Contains(got, "00:12.000") || strings.Contains(got, "01:30.000") {
-		t.Fatalf("out-of-range timestamps must be clamped, got %q", got)
+	for _, bad := range []string{"00:10.000", "00:10.500", "00:12.000", "01:30.000"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("timestamp %s must be clamped (strictly before the end), got %q", bad, got)
+		}
 	}
-	if !strings.Contains(got, "00:10.000") {
-		t.Fatalf("clamped value must be the duration (00:10.000), got %q", got)
+	if !strings.Contains(got, "00:09.999") {
+		t.Fatalf("clamped value must be the last valid moment (00:09.999), got %q", got)
 	}
 	if !strings.Contains(got, "00:04.500") {
 		t.Fatalf("in-range timestamps must stay untouched, got %q", got)
 	}
-	// Fractional duration.
-	frac := ClampTimestamps("[Shot 2] At 00:09.900, the shot ends.", 9.5)
-	if !strings.Contains(frac, "00:09.500") {
-		t.Fatalf("fractional clamp = %q, want 00:09.500", frac)
+	// Fractional duration: 9.5s -> last valid moment is 00:09.499.
+	frac := ClampTimestamps("[Shot 2] At 00:09.500, the shot ends.", 9.5)
+	if !strings.Contains(frac, "00:09.499") {
+		t.Fatalf("fractional clamp = %q, want 00:09.499", frac)
 	}
 	if got := ClampTimestamps("[Shot 1] At 00:05.000, ok.", 10); got != "[Shot 1] At 00:05.000, ok." {
 		t.Fatalf("clean timestamps must not change, got %q", got)

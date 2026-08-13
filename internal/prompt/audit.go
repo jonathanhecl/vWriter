@@ -89,7 +89,7 @@ func InvalidTimestamps(prompt string, durationSeconds float64) []string {
 			seconds, _ := strconv.Atoi(groups[2])
 			millis, _ := strconv.Atoi(groups[3])
 			total := float64(minutes*60+seconds) + float64(millis)/1000
-			bad = seconds >= 60 || (durationSeconds > 0 && total > durationSeconds+0.001)
+			bad = seconds >= 60 || (durationSeconds > 0 && total >= durationSeconds)
 		}
 		if bad && !seen[value] {
 			seen[value] = true
@@ -165,18 +165,19 @@ func LooseSpeechLines(promptText string) []string {
 	return dedupe(lines)
 }
 
-// ClampTimestamps rewrites every MM:SS.mmm timestamp that falls beyond the
-// target duration to the latest valid time, so no shot time can exceed the
-// configured video length (e.g. a 10-second part can never contain
-// "00:10.500").
+// ClampTimestamps rewrites every MM:SS.mmm timestamp that reaches or exceeds
+// the target duration to the last valid moment strictly before the end, so no
+// event can sit on or past the final second (e.g. a 10-second part can never
+// contain "00:10.000" or "00:10.500").
 func ClampTimestamps(text string, durationSeconds float64) string {
 	if durationSeconds <= 0 {
 		return text
 	}
+	clampedAt := durationSeconds - 0.001
 	clamped := fmt.Sprintf("%02d:%02d.%03d",
-		int(durationSeconds)/60,
-		int(durationSeconds)%60,
-		int(math.Round((durationSeconds-math.Floor(durationSeconds))*1000)))
+		int(clampedAt)/60,
+		int(clampedAt)%60,
+		int(math.Round((clampedAt-math.Floor(clampedAt))*1000)))
 	changed := false
 	out := timestampToken.ReplaceAllStringFunc(text, func(match string) string {
 		groups := validTimestamp.FindStringSubmatch(match)
@@ -187,7 +188,7 @@ func ClampTimestamps(text string, durationSeconds float64) string {
 		seconds, _ := strconv.Atoi(groups[2])
 		millis, _ := strconv.Atoi(groups[3])
 		total := float64(minutes*60+seconds) + float64(millis)/1000
-		if total > durationSeconds+0.001 {
+		if total >= durationSeconds {
 			changed = true
 			return clamped
 		}

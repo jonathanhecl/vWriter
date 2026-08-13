@@ -110,6 +110,12 @@ func refineBlock(refine string) string {
 	return "Refinement instruction (apply it to the generation):\n" + refine + "\n\n"
 }
 
+// durationRule reminds the model that every event must happen strictly before
+// the clip ends, never on or past the final second.
+func durationRule(durationSeconds float64) string {
+	return fmt.Sprintf("The target video is %g seconds long: every event, action, cut, and shot change must occur strictly before the end of the clip (before 00:%02d.000); nothing may happen on or past the final second. ", durationSeconds, int(durationSeconds))
+}
+
 var explicitEditPattern = regexp.MustCompile(`(?is)\b(?:edit(?:ing)?|continue|continuation|extend|remix|re-cut)\b.{0,40}\bvideo\b|\bvideo\s+editing\b`)
 
 // finalContract is the closing instruction block of the user message. It
@@ -270,9 +276,9 @@ func AssembleRequest(req GenerateRequest) (*Assembled, error) {
 		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\n\n"+
 			"Reference manifest (audio is not analyzed by the local model; derive its copy/reference role only from the user's words and do not invent its content):\n%s\n\n"+
 			"Creative brief:\n%s\n\n"+
-			"%s%s",
+			"%s%s%s",
 		req.DurationSeconds, req.AspectRatio, referenceManifestText(declared), brief,
-		refineBlock(req.RefineInstruction), finalContract(brief),
+		durationRule(req.DurationSeconds), refineBlock(req.RefineInstruction), finalContract(brief),
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {
@@ -415,10 +421,10 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 			"This segment MUST open with exactly this state:\n%s\n\n"+
 			"Previous part reference (character appearance, clothing, and scene only — never reproduce its shots or actions):\n%s\n\n"+
 			"Creative brief for this part:\n%s\n\n"+
-			"%s%s",
+			"%s%s%s",
 		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
 		source, source, ending, reference,
-		brief, refineBlock(req.RefineInstruction), contract,
+		brief, durationRule(req.DurationSeconds), refineBlock(req.RefineInstruction), contract,
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {
