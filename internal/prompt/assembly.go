@@ -389,9 +389,11 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 
 	declared, inputs := declaredReferences(req.Manifest, false)
 	contract := "This segment is a new, independent video of the same duration: timestamps restart at 00:00 " +
-		"and must remain within the duration. It MUST open with exactly the opening state below, then develop " +
-		"NEW content from it following " + source + "'s style, color palette, character appearance, clothing, " +
-		"scene, and props. It must NOT extend, reuse, replay, or re-render the previous video's footage; only " +
+		"and must remain within the duration. It MUST open with exactly the opening state below, established " +
+		"briefly in the first moments, then dedicate the rest of the segment to NEW content that develops from " +
+		"it following " + source + "'s style, color palette, character appearance, clothing, scene, and props. " +
+		"Do not linger on or re-narrate the previous part's ending at length; the opening state is only the " +
+		"starting point. It must NOT extend, reuse, replay, or re-render the previous video's footage; only " +
 		"carry the state, visual language, and subject appearance forward. " + source + " is a style and " +
 		"appearance reference, not an audio source: its audio does not carry over, and it must not be cited as " +
 		"audio reference or audio reuse. Unless an uploaded audio asset exists, music belongs only in " +
@@ -408,7 +410,8 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 			"Anything a character acquired, removed, or now holds (a hat put on, a helmet taken off, a jacket worn, "+
 			"a hammer picked up and held in hand) and any change to the place (a broken window, a collapsed shelf, "+
 			"moved objects, altered lighting) must already be present in the opening of this segment.\n\n"+
-			"Opening state — this segment MUST open with exactly this state:\n%s\n\n"+
+			"Opening state — establish it briefly in the first moments, then move on to the new content. "+
+			"This segment MUST open with exactly this state:\n%s\n\n"+
 			"Previous part prompt (the exact content of %s; keep character appearance, style, colors, and continuity consistent):\n%s\n\n"+
 			"%s"+
 			"Creative brief for this part:\n%s\n\n"+

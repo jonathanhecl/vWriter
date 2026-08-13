@@ -242,6 +242,8 @@ func TestAssembleContinuation(t *testing.T) {
 		"a hammer picked up and held in hand",
 		"a broken window",
 		"Opening state",
+		"briefly in the first moments",
+		"dedicate the rest of the segment",
 		"camera holds on his face",
 		"Previous part prompt",
 		"The hero follows the clue into the warehouse.",
