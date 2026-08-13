@@ -261,8 +261,6 @@ func TestAssembleContinuation(t *testing.T) {
 		"Previous part reference",
 		"never reproduce its shots or actions",
 		"The hero follows the clue into the warehouse.",
-		"Story brief",
-		"A detective noir set in 1940s New York.",
 		"Refinement instruction",
 		"make the lighting colder",
 		"not an audio source",

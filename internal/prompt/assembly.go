@@ -110,15 +110,6 @@ func refineBlock(refine string) string {
 	return "Refinement instruction (apply it to the generation):\n" + refine + "\n\n"
 }
 
-// storyBriefBlock renders the optional story-wide brief section, or "".
-func storyBriefBlock(brief string) string {
-	brief = trimSpace(brief)
-	if brief == "" {
-		return ""
-	}
-	return "Story brief (background context for the whole story):\n" + brief + "\n\n"
-}
-
 var explicitEditPattern = regexp.MustCompile(`(?is)\b(?:edit(?:ing)?|continue|continuation|extend|remix|re-cut)\b.{0,40}\bvideo\b|\bvideo\s+editing\b`)
 
 // finalContract is the closing instruction block of the user message. It
@@ -138,8 +129,7 @@ func finalContract(taskText string) string {
 			"not create audio-reference or audio-reuse semantics. Prefer one continuous shot unless cuts are requested; "+
 			"purposeful camera movement within that shot is allowed. Choose the camera framing, angle, distance, and "+
 			"movement that best serves the emotional beat of each moment — tension, suspense, intimacy, scale — "+
-			"writing it naturally inside the shot with the guide's camera vocabulary and explicit timestamps "+
-			"(e.g. \"[Shot 2] At 00:04.500, the camera pushes in...\"). Because H3 receives each source video itself, bind the "+
+			"writing it naturally inside the shot with the guide's camera vocabulary and explicit timestamps. Because H3 receives each source video itself, bind the "+
 			"complete choreography, temporal order, pacing, and rhythmic character of a motion-only video without "+
 			"reconstructing individual sampled gestures, named steps, poses, expressions, transitions, or a concluding move. "+
 			"When a concrete visible object, character, scene, or effect from <Video N> is reused in the target, describe that "+
@@ -424,12 +414,11 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 			"Opening state — establish it briefly in the first moments, then move on to the new content. "+
 			"This segment MUST open with exactly this state:\n%s\n\n"+
 			"Previous part reference (character appearance, clothing, and scene only — never reproduce its shots or actions):\n%s\n\n"+
-			"%s"+
 			"Creative brief for this part:\n%s\n\n"+
 			"%s%s",
 		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
 		source, source, ending, reference,
-		storyBriefBlock(req.StoryBrief), brief, refineBlock(req.RefineInstruction), contract,
+		brief, refineBlock(req.RefineInstruction), contract,
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {
