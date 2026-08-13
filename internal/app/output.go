@@ -254,11 +254,17 @@ func (a *App) layoutOutputHeader(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-// layoutRefineBar renders the refine instruction editor when open.
+// layoutRefineBar renders the refine instruction editor when open. While a
+// refine is running the Rewrite button is replaced by a generating notice.
 func (a *App) layoutRefineBar(gtx layout.Context) layout.Dimensions {
 	if !a.refineOpen || !a.hasResult {
 		return layout.Dimensions{}
 	}
+	a.mu.Lock()
+	generating := a.generating
+	tokens := a.streamTokens
+	a.mu.Unlock()
+
 	return card(gtx, 10, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -274,6 +280,29 @@ func (a *App) layoutRefineBar(gtx layout.Context) layout.Dimensions {
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								if generating {
+									return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											loaderGtx := gtx
+											loaderGtx.Constraints.Min = image.Pt(gtx.Dp(14), gtx.Dp(14))
+											loaderGtx.Constraints.Max = loaderGtx.Constraints.Min
+											l := material.Loader(a.theme)
+											l.Color = colorAccent
+											return l.Layout(loaderGtx)
+										}),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											text := "Refining…"
+											if tokens > 0 {
+												text = fmt.Sprintf("%s · %d tokens", text, tokens)
+											}
+											return layout.Inset{Left: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												l := material.Label(a.theme, 12, text)
+												l.Color = colorTextDim
+												return l.Layout(gtx)
+											})
+										}),
+									)
+								}
 								return a.primaryButton(gtx, &a.rewriteBtn, "Rewrite")
 							})
 						}),
