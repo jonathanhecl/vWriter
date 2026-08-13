@@ -94,7 +94,7 @@ func (a *App) handleEvents(gtx layout.Context) {
 		a.extendStory()
 	}
 	if a.copyBriefBtn.Clicked(gtx) && len(a.storyParts) > 0 {
-		a.copyBriefs(gtx)
+		a.copyBrief(gtx)
 	}
 	for len(a.partChips) < len(a.storyParts) {
 		a.partChips = append(a.partChips, widget.Clickable{})

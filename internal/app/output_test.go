@@ -5,35 +5,39 @@ import (
 	"testing"
 )
 
-func TestStoryBriefsText(t *testing.T) {
+func TestStoryPartBriefText(t *testing.T) {
 	a := &App{storyParts: []storyPart{
 		{Prompt: "p1", Brief: "main brief", Refines: []string{"make it colder"}},
 		{Prompt: "p2", Brief: "part 2 idea", Refines: []string{"add more tension", "slow the pacing"}},
 		{Prompt: "p3", Brief: "part 3 idea"},
 	}}
-	got := a.storyBriefsText()
+
+	got := a.storyPartBriefText(1)
 	for _, phrase := range []string{
-		"Part 1",
-		"main brief",
-		"make it colder",
 		"Part 2",
 		"part 2 idea",
 		"add more tension",
 		"slow the pacing",
-		"Part 3",
-		"part 3 idea",
 	} {
 		if !strings.Contains(got, phrase) {
-			t.Errorf("storyBriefsText missing %q", phrase)
+			t.Errorf("storyPartBriefText missing %q", phrase)
 		}
 	}
-	if !strings.HasPrefix(got, "Part 1") {
-		t.Errorf("storyBriefsText must start with part 1, got %q", got)
+	// Only the selected part's brief must appear, not the others.
+	if strings.Contains(got, "main brief") || strings.Contains(got, "part 3 idea") {
+		t.Errorf("storyPartBriefText leaked other parts: %q", got)
 	}
 }
 
-func TestStoryBriefsTextEmpty(t *testing.T) {
-	if got := (&App{}).storyBriefsText(); strings.TrimSpace(got) != "" {
-		t.Fatalf("empty story must yield empty text, got %q", got)
+func TestStoryPartBriefTextBounds(t *testing.T) {
+	a := &App{storyParts: []storyPart{{Prompt: "p1", Brief: "b1"}}}
+	if got := a.storyPartBriefText(-1); got != "" {
+		t.Fatalf("negative index must be empty, got %q", got)
+	}
+	if got := a.storyPartBriefText(5); got != "" {
+		t.Fatalf("out-of-range index must be empty, got %q", got)
+	}
+	if got := a.storyPartBriefText(0); !strings.Contains(got, "b1") {
+		t.Fatalf("valid index must return the brief, got %q", got)
 	}
 }

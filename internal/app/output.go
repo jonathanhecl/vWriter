@@ -204,7 +204,7 @@ func (a *App) layoutOutputHeader(gtx layout.Context) layout.Dimensions {
 							return layout.Dimensions{}
 						}
 						return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.smallButton(gtx, &a.copyBriefBtn, "Copy briefs")
+							return a.smallButton(gtx, &a.copyBriefBtn, "Copy brief")
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -351,34 +351,33 @@ func (a *App) partPill(gtx layout.Context, btn *widget.Clickable, label string, 
 	})
 }
 
-// storyBriefsText renders the inspirations used in each part: the part's
-// brief plus every refinement instruction applied to it.
-func (a *App) storyBriefsText() string {
+// storyPartBriefText renders the inspiration used in one part: its brief plus
+// every refinement instruction applied to it.
+func (a *App) storyPartBriefText(index int) string {
+	if index < 0 || index >= len(a.storyParts) {
+		return ""
+	}
+	part := a.storyParts[index]
 	var builder strings.Builder
-	for index, part := range a.storyParts {
-		if index > 0 {
-			builder.WriteString("\n\n")
-		}
-		fmt.Fprintf(&builder, "%s", a.partLabel(index))
-		if part.Brief != "" {
-			builder.WriteString("\nBrief: " + part.Brief)
-		}
-		for _, refine := range part.Refines {
-			builder.WriteString("\nRefine: " + refine)
-		}
+	builder.WriteString(a.partLabel(index))
+	if part.Brief != "" {
+		builder.WriteString("\nBrief: " + part.Brief)
+	}
+	for _, refine := range part.Refines {
+		builder.WriteString("\nRefine: " + refine)
 	}
 	return builder.String()
 }
 
-// copyBriefs copies the inspirations (brief + refines) of every part to the
-// clipboard.
-func (a *App) copyBriefs(gtx layout.Context) {
-	text := a.storyBriefsText()
+// copyBrief copies the inspiration (brief + refines) of the selected part to
+// the clipboard.
+func (a *App) copyBrief(gtx layout.Context) {
+	text := a.storyPartBriefText(a.partIndex)
 	if strings.TrimSpace(text) == "" {
 		return
 	}
 	gtx.Execute(clipboard.WriteCmd{Data: nopCloser{strings.NewReader(text)}})
-	a.pushToast("Part briefs copied to the clipboard.", "", false)
+	a.pushToast("Part brief copied to the clipboard.", "", false)
 	if a.window != nil {
 		a.window.Invalidate()
 	}

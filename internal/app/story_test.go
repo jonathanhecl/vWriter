@@ -42,8 +42,8 @@ func TestApplyResultExtendAppendsParts(t *testing.T) {
 		t.Fatalf("brief not kept: %+v", a.storyParts[1])
 	}
 
-	if briefs := a.storyBriefsText(); !strings.Contains(briefs, "part two idea") {
-		t.Fatalf("storyBriefsText = %q", briefs)
+	if brief := a.storyPartBriefText(1); !strings.Contains(brief, "part two idea") {
+		t.Fatalf("storyPartBriefText = %q", brief)
 	}
 }
 
@@ -66,10 +66,10 @@ func TestApplyResultRefineAppendsInstruction(t *testing.T) {
 	if len(a.storyParts[1].Refines) != 2 || a.storyParts[1].Refines[1] != "speed up the pacing" {
 		t.Fatalf("second refine not appended: %+v", a.storyParts[1])
 	}
-	// Refines flow into the copy-brief text.
-	briefs := a.storyBriefsText()
-	if !strings.Contains(briefs, "make the lighting colder") || !strings.Contains(briefs, "speed up the pacing") {
-		t.Fatalf("refines missing from briefs text: %q", briefs)
+	// Refines flow into the selected part's copy-brief text.
+	brief := a.storyPartBriefText(1)
+	if !strings.Contains(brief, "make the lighting colder") || !strings.Contains(brief, "speed up the pacing") {
+		t.Fatalf("refines missing from brief text: %q", brief)
 	}
 }
 
