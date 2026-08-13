@@ -2,38 +2,66 @@ package engine
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jonathanhecl/vWriter/internal/ollama"
 	"github.com/jonathanhecl/vWriter/internal/prompt"
 )
 
-// runAuditAndRepair audits the generated text and performs at most one narrow
-// repair pass. A failed or still-invalid repair keeps the original draft.
+// runAuditAndRepair audits the generated text and corrects it. Invented or
+// malformed media/subject references are stripped deterministically first
+// (no model round-trip); a narrow model repair is then used only for
+// structural issues such as missing sections or bad timestamps.
 func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, model string,
 	assembled *prompt.Assembled, plan *prompt.Plan, text string,
 	onPhase func(string), onProgress func(int),
 ) *Result {
 	audit := enrichAudit(assembled, text)
 	result := &Result{Prompt: text, Audit: audit, Plan: plan}
-	expected := prompt.ReferenceTags(userMessageContent(assembled))
 	if !audit.RepairRequired {
 		return result
 	}
+	request := userMessageContent(assembled)
+	expected := prompt.ReferenceTags(request)
+	expectedSubjects := prompt.SubjectTags(request)
+
+	// Deterministic first pass: strip lines that cite media or subjects the
+	// user did not provide. This resolves tag/subject hallucinations without
+	// a model call and never leaves the output empty on its own.
+	sanitized := prompt.SanitizePrompt(text, expected, expectedSubjects)
+	sanitizedAudit := enrichAudit(assembled, sanitized)
+	if strings.TrimSpace(sanitized) == "" {
+		sanitized = text
+		sanitizedAudit = audit
+	} else if !sanitizedAudit.RepairRequired {
+		result.Prompt = sanitized
+		result.Audit = sanitizedAudit
+		if sanitized != text {
+			result.RepairApplied = true
+		}
+		return result
+	}
+
+	// A narrow model repair remains for structural issues.
 	e.setPhase(PhaseRepairing, onPhase)
 	result.RepairAttempted = true
-	failures := prompt.AuditFailures(audit)
-	repairMessages := prompt.NarrowRepairMessages(assembled, text, failures, expected, assembled.Input.DurationSeconds)
+	failures := prompt.AuditFailures(sanitizedAudit)
+	repairMessages := prompt.NarrowRepairMessages(assembled, sanitized, failures, expected, assembled.Input.DurationSeconds)
 	repaired, err := client.Chat(ctx, ollama.ChatRequest{
 		Model:    model,
 		Messages: toOllamaMessages(repairMessages, nil),
 		Options:  chatOptions(plan, nil),
 	}, progressCallback(onProgress))
 	if err != nil {
+		result.Prompt = sanitized
+		result.Audit = sanitizedAudit
 		return result
 	}
 	repairedText := prompt.FinalText(repaired.Content)
 	if repairedText == "" {
+		result.Prompt = sanitized
+		result.Audit = sanitizedAudit
 		return result
 	}
 	repairedAudit := enrichAudit(assembled, repairedText)
@@ -43,15 +71,18 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 		result.RepairApplied = true
 		return result
 	}
-	// The repair pass did not fully resolve the violations. As a deterministic
-	// last-resort guard, strip every line referencing media or subjects that
-	// were not part of the story (e.g. an invented <Audio 1> or <Subject 3>)
-	// so the deliverable never cites things the user did not provide.
-	allowed := prompt.AllowedTags(expected, prompt.SubjectTags(userMessageContent(assembled)))
-	sanitized := prompt.SanitizePrompt(repairedText, allowed)
-	if sanitized != repairedText {
-		result.Prompt = sanitized
-		result.Audit = enrichAudit(assembled, sanitized)
+	// Last resort: deterministic strip again on the repaired text.
+	final := prompt.SanitizePrompt(repairedText, expected, expectedSubjects)
+	if final != repairedText && strings.TrimSpace(final) != "" {
+		result.Prompt = final
+		result.Audit = enrichAudit(assembled, final)
+		result.RepairApplied = true
+		return result
+	}
+	// Prefer the deterministic-stripped version over the raw text.
+	result.Prompt = sanitized
+	result.Audit = sanitizedAudit
+	if sanitized != text {
 		result.RepairApplied = true
 	}
 	return result

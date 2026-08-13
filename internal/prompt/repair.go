@@ -101,15 +101,17 @@ func UnexpectedAudioTask(taskLabel string, expectedTags map[string]bool) bool {
 }
 
 // SanitizePrompt removes every line that references a numbered media or
-// subject tag not in the expected set — an invented asset such as <Audio 1>
-// or <Subject 3>. It is a deterministic last-resort guard applied after the
-// repair pass so the deliverable never cites media the user did not send.
-func SanitizePrompt(text string, expected map[string]bool) string {
+// subject tag not in the expected sets — an invented asset such as <Audio 1>
+// or <Subject 3>, or a malformed placeholder such as <Video None>. It is a
+// deterministic guard: media is always constrained to the expected set, while
+// subjects are only constrained when a prior subject set exists (a fresh
+// generation defines them freely).
+func SanitizePrompt(text string, allowedMedia, allowedSubjects map[string]bool) string {
 	lines := strings.Split(text, "\n")
 	out := make([]string, 0, len(lines))
 	changed := false
 	for _, line := range lines {
-		if lineReferencesUndeclaredTag(line, expected) {
+		if lineReferencesUndeclaredTag(line, allowedMedia, allowedSubjects) {
 			changed = true
 			continue
 		}
@@ -121,36 +123,26 @@ func SanitizePrompt(text string, expected map[string]bool) string {
 	return strings.Join(out, "\n")
 }
 
-// AllowedTags merges the expected media tags and subject tags into one set
-// used by SanitizePrompt.
-func AllowedTags(mediaTags, subjectTags map[string]bool) map[string]bool {
-	allowed := make(map[string]bool, len(mediaTags)+len(subjectTags))
-	for tag := range mediaTags {
-		allowed[tag] = true
-	}
-	for tag := range subjectTags {
-		allowed[tag] = true
-	}
-	return allowed
-}
-
-// lineReferencesUndeclaredTag reports whether a line contains a media or
-// subject tag that is not in the expected set, or a malformed placeholder
-// such as "<Video None>".
-func lineReferencesUndeclaredTag(line string, expected map[string]bool) bool {
+// lineReferencesUndeclaredTag reports whether a line contains a malformed
+// placeholder, a media tag not in the expected set, or — when a prior subject
+// set exists — a subject tag outside it.
+func lineReferencesUndeclaredTag(line string, allowedMedia, allowedSubjects map[string]bool) bool {
 	if malformedTagPattern.MatchString(line) {
 		return true
 	}
 	for _, groups := range referenceTagPattern.FindAllStringSubmatch(line, -1) {
 		kind := strings.ToUpper(groups[1][:1]) + strings.ToLower(groups[1][1:])
 		tag := fmt.Sprintf("<%s %s>", kind, groups[2])
-		if !expected[tag] {
+		if !allowedMedia[tag] {
 			return true
 		}
 	}
+	if len(allowedSubjects) == 0 {
+		return false
+	}
 	for _, groups := range subjectTagPattern.FindAllStringSubmatch(line, -1) {
 		tag := "<Subject " + groups[1] + ">"
-		if !expected[tag] {
+		if !allowedSubjects[tag] {
 			return true
 		}
 	}
