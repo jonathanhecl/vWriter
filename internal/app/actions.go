@@ -232,6 +232,7 @@ func (a *App) generate() {
 	a.pendingAction = "generate"
 	a.pendingIndex = 0
 	a.pendingBrief = ""
+	a.pendingRefine = ""
 	a.saveConfig()
 
 	params := engine.GenerateParams{
@@ -287,6 +288,7 @@ func (a *App) refine() {
 	a.pendingAction = "refine"
 	a.pendingIndex = a.partIndex
 	a.pendingBrief = ""
+	a.pendingRefine = instruction
 	a.originalOut = current
 	params := engine.RefineParams{
 		SessionID:            a.session,
@@ -375,6 +377,7 @@ func (a *App) extendStory() {
 	a.pendingAction = "extend"
 	a.pendingIndex = len(a.storyParts)
 	a.pendingBrief = brief
+	a.pendingRefine = ""
 	a.saveConfig()
 
 	params := engine.ContinuationParams{
@@ -436,6 +439,7 @@ func (a *App) regeneratePart() {
 	a.pendingAction = "regenerate"
 	a.pendingIndex = index
 	a.pendingBrief = ""
+	a.pendingRefine = ""
 	a.saveConfig()
 
 	if index == 0 {
@@ -547,7 +551,7 @@ func (a *App) selectPart(index int) {
 func (a *App) presetParts() []config.PresetPart {
 	parts := make([]config.PresetPart, 0, len(a.storyParts))
 	for _, part := range a.storyParts {
-		parts = append(parts, config.PresetPart{Prompt: part.Prompt, Brief: part.Brief})
+		parts = append(parts, config.PresetPart{Prompt: part.Prompt, Brief: part.Brief, Refines: append([]string(nil), part.Refines...)})
 	}
 	return parts
 }
@@ -662,7 +666,7 @@ func (a *App) loadPreset(index int) {
 	if len(p.Parts) > 0 {
 		a.storyParts = nil
 		for _, part := range p.Parts {
-			a.storyParts = append(a.storyParts, storyPart{Prompt: part.Prompt, Brief: part.Brief})
+			a.storyParts = append(a.storyParts, storyPart{Prompt: part.Prompt, Brief: part.Brief, Refines: append([]string(nil), part.Refines...)})
 		}
 		a.partIndex = 0
 		if len(a.storyParts) > 0 {

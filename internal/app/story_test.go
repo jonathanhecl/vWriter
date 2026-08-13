@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jonathanhecl/vWriter/internal/config"
@@ -41,9 +42,34 @@ func TestApplyResultExtendAppendsParts(t *testing.T) {
 		t.Fatalf("brief not kept: %+v", a.storyParts[1])
 	}
 
-	text := a.storyText()
-	if !containsAll(text, "PART ONE", "--- PART 2 ---", "PART TWO") {
-		t.Fatalf("storyText = %q", text)
+	if briefs := a.storyBriefsText(); !strings.Contains(briefs, "part two idea") {
+		t.Fatalf("storyBriefsText = %q", briefs)
+	}
+}
+
+func TestApplyResultRefineAppendsInstruction(t *testing.T) {
+	a := testApp(t)
+	a.storyParts = []storyPart{{Prompt: "P1"}, {Prompt: "P2"}}
+	a.pendingAction = "refine"
+	a.pendingIndex = 1
+	a.pendingRefine = "make the lighting colder"
+	a.applyResult(&engine.Result{Prompt: "P2-REFINED"})
+	if a.storyParts[1].Prompt != "P2-REFINED" {
+		t.Fatalf("refined prompt not applied: %+v", a.storyParts[1])
+	}
+	if len(a.storyParts[1].Refines) != 1 || a.storyParts[1].Refines[0] != "make the lighting colder" {
+		t.Fatalf("refine instruction not recorded: %+v", a.storyParts[1])
+	}
+	// A second refine appends.
+	a.pendingRefine = "speed up the pacing"
+	a.applyResult(&engine.Result{Prompt: "P2-REFINED-2"})
+	if len(a.storyParts[1].Refines) != 2 || a.storyParts[1].Refines[1] != "speed up the pacing" {
+		t.Fatalf("second refine not appended: %+v", a.storyParts[1])
+	}
+	// Refines flow into the copy-brief text.
+	briefs := a.storyBriefsText()
+	if !strings.Contains(briefs, "make the lighting colder") || !strings.Contains(briefs, "speed up the pacing") {
+		t.Fatalf("refines missing from briefs text: %q", briefs)
 	}
 }
 
@@ -95,26 +121,4 @@ func TestSelectPartSyncsEditor(t *testing.T) {
 	if a.originalOut != "P1" || a.lastAIMark != "P1" {
 		t.Fatalf("editor marks not synced: original=%q lastAI=%q", a.originalOut, a.lastAIMark)
 	}
-}
-
-func containsAll(text string, phrases ...string) bool {
-	for _, phrase := range phrases {
-		if !containsStr(text, phrase) {
-			return false
-		}
-	}
-	return true
-}
-
-func containsStr(text, sub string) bool {
-	return len(text) >= len(sub) && (sub == "" || indexOf(text, sub) >= 0)
-}
-
-func indexOf(text, sub string) int {
-	for i := 0; i+len(sub) <= len(text); i++ {
-		if text[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
 }

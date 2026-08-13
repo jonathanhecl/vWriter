@@ -200,11 +200,11 @@ func (a *App) layoutOutputHeader(gtx layout.Context) layout.Dimensions {
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if len(a.storyParts) <= 1 {
+						if len(a.storyParts) == 0 {
 							return layout.Dimensions{}
 						}
 						return layout.Inset{Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.smallButton(gtx, &a.copyAllBtn, "Copy all")
+							return a.smallButton(gtx, &a.copyBriefBtn, "Copy briefs")
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -351,30 +351,34 @@ func (a *App) partPill(gtx layout.Context, btn *widget.Clickable, label string, 
 	})
 }
 
-// storyText concatenates every part prompt with a separator, e.g.
-// "P1\n\n--- PART 2 ---\n\nP2".
-func (a *App) storyText() string {
-	if len(a.storyParts) == 0 {
-		return ""
-	}
+// storyBriefsText renders the inspirations used in each part: the part's
+// brief plus every refinement instruction applied to it.
+func (a *App) storyBriefsText() string {
 	var builder strings.Builder
 	for index, part := range a.storyParts {
 		if index > 0 {
-			builder.WriteString(fmt.Sprintf("\n\n--- PART %d ---\n\n", index+1))
+			builder.WriteString("\n\n")
 		}
-		builder.WriteString(part.Prompt)
+		fmt.Fprintf(&builder, "%s", a.partLabel(index))
+		if part.Brief != "" {
+			builder.WriteString("\nBrief: " + part.Brief)
+		}
+		for _, refine := range part.Refines {
+			builder.WriteString("\nRefine: " + refine)
+		}
 	}
 	return builder.String()
 }
 
-// copyAllParts copies the whole story (every part concatenated) to the
+// copyBriefs copies the inspirations (brief + refines) of every part to the
 // clipboard.
-func (a *App) copyAllParts(gtx layout.Context) {
-	if len(a.storyParts) == 0 {
+func (a *App) copyBriefs(gtx layout.Context) {
+	text := a.storyBriefsText()
+	if strings.TrimSpace(text) == "" {
 		return
 	}
-	gtx.Execute(clipboard.WriteCmd{Data: nopCloser{strings.NewReader(a.storyText())}})
-	a.pushToast(fmt.Sprintf("Story (%d parts) copied to the clipboard.", len(a.storyParts)), "", false)
+	gtx.Execute(clipboard.WriteCmd{Data: nopCloser{strings.NewReader(text)}})
+	a.pushToast("Part briefs copied to the clipboard.", "", false)
 	if a.window != nil {
 		a.window.Invalidate()
 	}

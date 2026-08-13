@@ -5,31 +5,35 @@ import (
 	"testing"
 )
 
-func TestStoryText(t *testing.T) {
+func TestStoryBriefsText(t *testing.T) {
 	a := &App{storyParts: []storyPart{
-		{Prompt: "subject_definitions:\n<Subject 1>", Brief: ""},
-		{Prompt: "summary:\n[video continuation]", Brief: "part 2 idea"},
-		{Prompt: "detailed_description:\n[Shot 1]", Brief: "part 3 idea"},
+		{Prompt: "p1", Brief: "main brief", Refines: []string{"make it colder"}},
+		{Prompt: "p2", Brief: "part 2 idea", Refines: []string{"add more tension", "slow the pacing"}},
+		{Prompt: "p3", Brief: "part 3 idea"},
 	}}
-	got := a.storyText()
+	got := a.storyBriefsText()
 	for _, phrase := range []string{
-		"subject_definitions",
-		"--- PART 2 ---",
-		"summary:",
-		"--- PART 3 ---",
-		"detailed_description:",
+		"Part 1",
+		"main brief",
+		"make it colder",
+		"Part 2",
+		"part 2 idea",
+		"add more tension",
+		"slow the pacing",
+		"Part 3",
+		"part 3 idea",
 	} {
 		if !strings.Contains(got, phrase) {
-			t.Errorf("storyText missing %q", phrase)
+			t.Errorf("storyBriefsText missing %q", phrase)
 		}
 	}
-	if !strings.HasPrefix(got, "subject_definitions") {
-		t.Errorf("storyText must start with part 1, got %q", got)
+	if !strings.HasPrefix(got, "Part 1") {
+		t.Errorf("storyBriefsText must start with part 1, got %q", got)
 	}
 }
 
-func TestStoryTextEmpty(t *testing.T) {
-	if got := (&App{}).storyText(); got != "" {
+func TestStoryBriefsTextEmpty(t *testing.T) {
+	if got := (&App{}).storyBriefsText(); strings.TrimSpace(got) != "" {
 		t.Fatalf("empty story must yield empty text, got %q", got)
 	}
 }

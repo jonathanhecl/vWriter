@@ -156,21 +156,24 @@ type App struct {
 	pendingAction string
 	pendingIndex  int
 	pendingBrief  string
+	pendingRefine string
 
 	extendEditor  widget.Editor
 	extendOpen    bool
 	extendBtn     widget.Clickable
 	genExtendBtn  widget.Clickable
 	regenerateBtn widget.Clickable
-	copyAllBtn    widget.Clickable
+	copyBriefBtn  widget.Clickable
 	partChips     []widget.Clickable
 }
 
 // storyPart is one prompt of a multi-part story. Brief is the idea the user
-// wrote for that part (empty for the first part, which uses the main brief).
+// wrote for that part (for part 1, the main creative brief), and Refines
+// holds every revision instruction applied to the part.
 type storyPart struct {
-	Prompt string
-	Brief  string
+	Prompt  string
+	Brief   string
+	Refines []string
 }
 
 // Run starts the window event loop.
@@ -325,10 +328,13 @@ func (a *App) applyResult(res *engine.Result) {
 	case "refine":
 		if a.pendingIndex >= 0 && a.pendingIndex < len(a.storyParts) {
 			a.storyParts[a.pendingIndex].Prompt = res.Prompt
+			if refine := strings.TrimSpace(a.pendingRefine); refine != "" {
+				a.storyParts[a.pendingIndex].Refines = append(a.storyParts[a.pendingIndex].Refines, refine)
+			}
 			a.partIndex = a.pendingIndex
 		}
 	default: // "generate"
-		a.storyParts = []storyPart{{Prompt: res.Prompt, Brief: ""}}
+		a.storyParts = []storyPart{{Prompt: res.Prompt, Brief: a.briefEditor.Text()}}
 		a.partIndex = 0
 	}
 	a.originalOut = res.Prompt
