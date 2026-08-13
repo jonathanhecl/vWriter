@@ -11,6 +11,7 @@ import (
 var (
 	referenceTagPattern    = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio)\s+(\d+)\s*>`)
 	subjectTagPattern      = regexp.MustCompile(`(?i)<\s*Subject\s+(\d+)\s*>`)
+	malformedMediaPattern  = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio)\s+([^0-9][^<>]*)\s*>`)
 	malformedTagPattern    = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio|Subject)\s+([^0-9][^<>]*)\s*>`)
 	cameraMovement         = regexp.MustCompile(`(?i)\b(?:zoom(?:s|ed|ing)?|pan(?:s|ned|ning)?|doll(?:y|ies|ied|ying)|tracking shot|camera\s+(?:moves?|pulls?|pushes?|pans?|zooms?|tracks?|dollies?))\b`)
 	noCutsBrief            = regexp.MustCompile(`(?i)\b(?:no cuts?|without cuts?|single continuous shot|one continuous shot)\b`)
