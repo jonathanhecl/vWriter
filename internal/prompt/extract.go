@@ -63,3 +63,17 @@ func cleanState(text string) string {
 	}
 	return strings.TrimSpace(text)
 }
+
+// ReferenceContextExcerpt returns the compact continuity reference of a
+// previous part: its subject_definitions and retention_analysis sections. It
+// deliberately excludes detailed_description, so the model is never tempted
+// to reproduce the previous part's shot timeline inside the new part.
+func ReferenceContextExcerpt(promptText string) string {
+	var parts []string
+	for _, section := range []string{"subject_definitions", "retention_analysis"} {
+		if content := strings.TrimSpace(sectionContent(promptText, section)); content != "" {
+			parts = append(parts, section+":\n"+content)
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}

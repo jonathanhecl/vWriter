@@ -258,7 +258,8 @@ func TestAssembleContinuation(t *testing.T) {
 		"briefly in the first moments",
 		"dedicate the rest of the segment",
 		"camera holds on his face",
-		"Previous part prompt",
+		"Previous part reference",
+		"never reproduce its shots or actions",
 		"The hero follows the clue into the warehouse.",
 		"Story brief",
 		"A detective noir set in 1940s New York.",
@@ -274,6 +275,11 @@ func TestAssembleContinuation(t *testing.T) {
 	// The source video is declared textually only; no image is attached for it.
 	if strings.Contains(user, "<Picture 2>") || strings.Contains(user, "virtual frame") {
 		t.Error("continuation must not invent a synthetic <Picture N> first frame")
+	}
+	// The previous part's full shot timeline must not be embedded, or the
+	// model reproduces part 1 as part 2's shots.
+	if strings.Contains(user, "dim office") {
+		t.Error("continuation must not carry the previous part's detailed_description timeline")
 	}
 	// Real media is re-attached for consistency.
 	if len(assembled.MediaInputs) != 1 || assembled.MediaInputs[0].ImagePath != "prepared.jpg" {

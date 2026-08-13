@@ -398,6 +398,7 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 	}
 
 	declared, inputs := declaredReferences(req.Manifest, false)
+	reference := ReferenceContextExcerpt(previous)
 	contract := "This segment is a new, independent video of the same duration: timestamps restart at 00:00 " +
 		"and must remain within the duration. It MUST open with exactly the opening state below, established " +
 		"briefly in the first moments, then dedicate the rest of the segment to NEW content that develops from " +
@@ -413,21 +414,21 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\nPart: new segment of a multi-part story\n\n"+
 			"Reference manifest (real media assets, re-attached for consistency):\n%s\n\n"+
 			"Reference from the previous part:\n%s — the video generated from the previous part of this story. "+
-			"It is not an uploaded asset, so no file is attached; its exact content is the previous part's prompt below. "+
-			"Follow its style, color palette, character appearance, clothing, and scene, but generate NEW content. "+
-			"Do not extend, reuse, or re-render the previous video's frames.\n\n"+
+			"It is not an uploaded asset, so no file is attached. Follow its style, color palette, character "+
+			"appearance, clothing, and scene, but generate NEW content. Do not extend, reuse, or re-render the "+
+			"previous video's frames or shots.\n\n"+
 			"Continuity state — carry forward every change that happened by the end of %s:\n"+
 			"Anything a character acquired, removed, or now holds (a hat put on, a helmet taken off, a jacket worn, "+
 			"a hammer picked up and held in hand) and any change to the place (a broken window, a collapsed shelf, "+
 			"moved objects, altered lighting) must already be present in the opening of this segment.\n\n"+
 			"Opening state — establish it briefly in the first moments, then move on to the new content. "+
 			"This segment MUST open with exactly this state:\n%s\n\n"+
-			"Previous part prompt (the exact content of %s; keep character appearance, style, colors, and continuity consistent):\n%s\n\n"+
+			"Previous part reference (character appearance, clothing, and scene only — never reproduce its shots or actions):\n%s\n\n"+
 			"%s"+
 			"Creative brief for this part:\n%s\n\n"+
 			"%s%s",
 		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
-		source, source, ending, source, previous,
+		source, source, ending, reference,
 		storyBriefBlock(req.StoryBrief), brief, refineBlock(req.RefineInstruction), contract,
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)

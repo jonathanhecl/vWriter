@@ -66,3 +66,13 @@ func TestExtractEndingStateMalformedEmpty(t *testing.T) {
 		t.Fatalf("malformed prompt must yield empty ending, got %q", got)
 	}
 }
+
+func TestReferenceContextExcerpt(t *testing.T) {
+	got := ReferenceContextExcerpt(endingFixture)
+	if !strings.Contains(got, "subject_definitions") || !strings.Contains(got, "retention_analysis") {
+		t.Fatalf("excerpt must include the continuity sections, got %q", got)
+	}
+	if strings.Contains(got, "dim office") || strings.Contains(got, "detailed_description") {
+		t.Fatalf("excerpt must exclude the shot timeline, got %q", got)
+	}
+}
