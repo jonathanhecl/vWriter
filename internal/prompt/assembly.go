@@ -87,14 +87,14 @@ type RefineRequest struct {
 // ContinuationRequest is the input to AssembleContinuation: the next part of
 // a multi-part story, generated as a video continuation of the previous part.
 type ContinuationRequest struct {
-	Manifest               media.Manifest
-	PartBrief              string
-	DurationSeconds        float64
-	AspectRatio            string
-	PreviousPrompt         string
-	PreviousEnding         string
-	ContinuationFrameLabel string
-	SystemPromptOverride   *string
+	Manifest             media.Manifest
+	PartBrief            string
+	DurationSeconds      float64
+	AspectRatio          string
+	PreviousPrompt       string
+	PreviousEnding       string
+	SourceVideoLabel     string
+	SystemPromptOverride *string
 }
 
 var explicitEditPattern = regexp.MustCompile(`(?is)\b(?:edit(?:ing)?|continue|continuation|extend|remix|re-cut)\b.{0,40}\bvideo\b|\bvideo\s+editing\b`)
@@ -162,7 +162,7 @@ func guideMessages(systemPrompt string) (messages []Message, guideMeta, baseMeta
 // always declared; visuals when analysis is requested) and eligible visual
 // model inputs. withAnchors controls whether first/last frame image anchors
 // are propagated to the model bindings; continuations suppress them because
-// their opening is a virtual continuation frame.
+// they continue a previous part's video instead.
 func declaredReferences(manifest media.Manifest, withAnchors bool) (declared []*media.Asset, inputs []MediaInput) {
 	for _, asset := range manifest.Assets {
 		if asset.Type != media.Audio && !asset.AnalysisRequested {
@@ -207,7 +207,8 @@ func referenceManifestText(declared []*media.Asset) string {
 }
 
 // continuationManifestText renders the manifest without the first/last frame
-// MUST markers; the opening anchor of a continuation is the virtual frame.
+// MUST markers; the opening of a continuation is defined by the previous
+// part's source video, not by an image anchor.
 func continuationManifestText(declared []*media.Asset) string {
 	if len(declared) == 0 {
 		return "None"
@@ -324,9 +325,10 @@ func AssembleRefinement(req RefineRequest) (*Assembled, error) {
 }
 
 // AssembleContinuation validates and assembles the next part of a multi-part
-// story. The same reference media is re-attached and the previous part's
-// ending state is injected as a virtual <Picture X> first frame, so each
-// extended part opens exactly where the previous one ended.
+// story. The same reference media is re-attached, and the previous part's
+// video is declared as a <Video N> source reference (the video being
+// continued), described textually by the previous part's prompt since the
+// actual file does not exist yet.
 func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 	brief := trimSpace(req.PartBrief)
 	if brief == "" {
@@ -346,15 +348,15 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 	}
 	previous := trimSpace(req.PreviousPrompt)
 	ending := trimSpace(req.PreviousEnding)
-	frame := trimSpace(req.ContinuationFrameLabel)
+	source := trimSpace(req.SourceVideoLabel)
 	if previous == "" {
 		return nil, &Error{Code: "INVALID_REQUEST", Message: "The previous part prompt is required to continue a story.", Details: map[string]string{"field": "previous_prompt"}}
 	}
 	if ending == "" {
 		return nil, &Error{Code: "INVALID_REQUEST", Message: "The previous part's ending state could not be extracted.", Details: map[string]string{"field": "previous_ending"}}
 	}
-	if frame == "" {
-		return nil, &Error{Code: "INVALID_REQUEST", Message: "A continuation frame label is required.", Details: map[string]string{"field": "continuation_frame_label"}}
+	if source == "" {
+		return nil, &Error{Code: "INVALID_REQUEST", Message: "A source video label is required.", Details: map[string]string{"field": "source_video_label"}}
 	}
 	systemPrompt, custom, err := ResolveSystemPrompt(req.SystemPromptOverride)
 	if err != nil {
@@ -363,17 +365,21 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 
 	declared, inputs := declaredReferences(req.Manifest, false)
 	contract := "This part is a new, independent video of the same duration: timestamps restart at 00:00 " +
-		"and must remain within the duration. It MUST open with the continuation frame and develop the " +
-		"story forward from that exact state. " +
+		"and must remain within the duration. It is a continuation of " + source + ", so it MUST open with " +
+		"exactly the final state of " + source + " described below and continue the story forward from it, " +
+		"keeping subjects, scene, style, camera treatment, and continuity consistent with the source. " +
 		finalContract(brief+" continue the story as a video continuation of the previous part.")
 	userContent := fmt.Sprintf(
 		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\nPart: video continuation of a multi-part story\n\n"+
 			"Reference manifest (real media assets, re-attached for consistency):\n%s\n\n"+
-			"Continuation frame — this part MUST open with exactly this state. It is a virtual frame; no image is attached:\n%s\n%s\n\n"+
-			"Previous part (context only; keep subjects, scene, style, and continuity consistent):\n%s\n\n"+
+			"Source video to continue:\n%s — the video generated from the previous part of this story. "+
+			"It is the source being continued; it is not an uploaded asset, so no file is attached. "+
+			"Its exact content is the previous part's prompt below.\n\n"+
+			"How %s ends — this part MUST open with exactly this state:\n%s\n\n"+
+			"Previous part prompt (this is the exact content of %s; keep every subject, scene, style, and continuity element consistent):\n%s\n\n"+
 			"Creative brief for this part:\n%s\n\n%s",
 		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
-		frame, ending, previous, brief, contract,
+		source, source, ending, source, previous, brief, contract,
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {

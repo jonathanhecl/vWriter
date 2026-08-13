@@ -200,13 +200,13 @@ func validContinuationRequest() ContinuationRequest {
 	manifest := validManifest()
 	manifest.Assets[0].Role = media.RoleFirstFrame
 	return ContinuationRequest{
-		Manifest:               manifest,
-		PartBrief:              "The hero follows the clue into the warehouse.",
-		DurationSeconds:        10,
-		AspectRatio:            "16:9",
-		PreviousPrompt:         endingFixture,
-		PreviousEnding:         ExtractEndingState(endingFixture),
-		ContinuationFrameLabel: "<Picture 2>",
+		Manifest:         manifest,
+		PartBrief:        "The hero follows the clue into the warehouse.",
+		DurationSeconds:  10,
+		AspectRatio:      "16:9",
+		PreviousPrompt:   endingFixture,
+		PreviousEnding:   ExtractEndingState(endingFixture),
+		SourceVideoLabel: "<Video 2>",
 	}
 }
 
@@ -218,15 +218,20 @@ func TestAssembleContinuation(t *testing.T) {
 	user := assembled.Messages[len(assembled.Messages)-1].Content
 	for _, phrase := range []string{
 		"video continuation",
-		"<Picture 2>",
+		"Source video to continue",
+		"<Video 2>",
 		"camera holds on his face",
-		"Previous part",
+		"Previous part prompt",
 		"The hero follows the clue into the warehouse.",
-		"MUST open with the continuation frame",
+		"MUST open with exactly the final state",
 	} {
 		if !strings.Contains(user, phrase) {
 			t.Errorf("continuation user message missing %q", phrase)
 		}
+	}
+	// The source video is declared textually only; no image is attached for it.
+	if strings.Contains(user, "<Picture 2>") || strings.Contains(user, "virtual frame") {
+		t.Error("continuation must not invent a synthetic <Picture N> first frame")
 	}
 	// Real media is re-attached for consistency.
 	if len(assembled.MediaInputs) != 1 || assembled.MediaInputs[0].ImagePath != "prepared.jpg" {
@@ -258,7 +263,7 @@ func TestAssembleContinuationValidation(t *testing.T) {
 		{"invalid manifest", func(r *ContinuationRequest) { r.Manifest.Valid = false }, "INVALID_MEDIA_MANIFEST"},
 		{"missing previous prompt", func(r *ContinuationRequest) { r.PreviousPrompt = "" }, "INVALID_REQUEST"},
 		{"missing ending", func(r *ContinuationRequest) { r.PreviousEnding = "" }, "INVALID_REQUEST"},
-		{"missing frame label", func(r *ContinuationRequest) { r.ContinuationFrameLabel = "" }, "INVALID_REQUEST"},
+		{"missing source video label", func(r *ContinuationRequest) { r.SourceVideoLabel = "" }, "INVALID_REQUEST"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

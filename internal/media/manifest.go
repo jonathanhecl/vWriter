@@ -53,8 +53,8 @@ func ReferenceLine(asset *Asset) string {
 }
 
 // ReferenceLineSansAnchors renders a reference line without the first/last
-// frame MUST markers. Continuation parts define their opening with a virtual
-// continuation frame instead, so image anchors must not constrain them.
+// frame MUST markers. Continuation parts continue a previous part's video, so
+// image anchors must not constrain them.
 func ReferenceLineSansAnchors(asset *Asset) string {
 	return referenceLine(asset, false)
 }

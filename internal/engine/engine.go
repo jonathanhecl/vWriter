@@ -289,21 +289,21 @@ func (e *Engine) run(ctx context.Context, client *ollama.Client, assembled *prom
 // ContinuationParams drives one GenerateContinuation call: the next part of a
 // multi-part story.
 type ContinuationParams struct {
-	SessionID              string
-	Model                  string
-	PartBrief              string
-	DurationSeconds        float64
-	AspectRatio            string
-	PreviousPrompt         string
-	PreviousEnding         string
-	ContinuationFrameLabel string
-	ContextProfile         string
-	Thinking               bool
-	KeepModelLoaded        bool
-	Seed                   *int
-	SystemPromptOverride   *string
-	OnPhase                func(phase string)
-	OnProgress             func(tokens int)
+	SessionID            string
+	Model                string
+	PartBrief            string
+	DurationSeconds      float64
+	AspectRatio          string
+	PreviousPrompt       string
+	PreviousEnding       string
+	SourceVideoLabel     string
+	ContextProfile       string
+	Thinking             bool
+	KeepModelLoaded      bool
+	Seed                 *int
+	SystemPromptOverride *string
+	OnPhase              func(phase string)
+	OnProgress           func(tokens int)
 }
 
 // GenerateContinuation generates the next part of a multi-part story as a
@@ -326,14 +326,14 @@ func (e *Engine) GenerateContinuation(params ContinuationParams) (*Result, error
 		return nil, err
 	}
 	assembled, err := prompt.AssembleContinuation(prompt.ContinuationRequest{
-		Manifest:               e.Store.Manifest(params.SessionID),
-		PartBrief:              params.PartBrief,
-		DurationSeconds:        params.DurationSeconds,
-		AspectRatio:            params.AspectRatio,
-		PreviousPrompt:         params.PreviousPrompt,
-		PreviousEnding:         params.PreviousEnding,
-		ContinuationFrameLabel: params.ContinuationFrameLabel,
-		SystemPromptOverride:   params.SystemPromptOverride,
+		Manifest:             e.Store.Manifest(params.SessionID),
+		PartBrief:            params.PartBrief,
+		DurationSeconds:      params.DurationSeconds,
+		AspectRatio:          params.AspectRatio,
+		PreviousPrompt:       params.PreviousPrompt,
+		PreviousEnding:       params.PreviousEnding,
+		SourceVideoLabel:     params.SourceVideoLabel,
+		SystemPromptOverride: params.SystemPromptOverride,
 	})
 	if err != nil {
 		return nil, err

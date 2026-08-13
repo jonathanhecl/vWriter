@@ -61,7 +61,7 @@ non_diegetic_music:
 N/A`
 
 // continuationPrompt is a structurally valid continuation that references the
-// real asset and the virtual continuation frame.
+// real asset and the source video being continued.
 const continuationPrompt = `subject_definitions:
 <Subject 1> comes from <Picture 1>.
 
@@ -70,7 +70,7 @@ summary:
 
 retention_analysis:
 <Subject 1>: fully_preserved.
-<Picture 2>: fully_preserved.
+<Video 2>: fully_preserved.
 
 detailed_description:
 [Shot 1] ` + "%DETAILED%" + `
@@ -336,7 +336,7 @@ func TestGenerateBoundaryBinding(t *testing.T) {
 	}
 }
 
-func TestGenerateContinuationReusesFrameLabel(t *testing.T) {
+func TestGenerateContinuationReusesSourceVideoLabel(t *testing.T) {
 	fake := &fakeOllama{t: t, responses: []string{
 		buildPrompt(validPrompt, 400),        // part 1
 		buildPrompt(continuationPrompt, 400), // part 2
@@ -348,33 +348,33 @@ func TestGenerateContinuationReusesFrameLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	frameLabel := "<Picture 2>"
+	sourceLabel := "<Video 2>"
 	part2, err := eng.GenerateContinuation(ContinuationParams{
-		SessionID:              session,
-		Model:                  "vision-model:latest",
-		PartBrief:              "The hero follows the clue into the warehouse.",
-		DurationSeconds:        10,
-		AspectRatio:            "16:9",
-		PreviousPrompt:         part1.Prompt,
-		PreviousEnding:         prompt.ExtractEndingState(part1.Prompt),
-		ContinuationFrameLabel: frameLabel,
-		ContextProfile:         "auto",
-		KeepModelLoaded:        true,
+		SessionID:        session,
+		Model:            "vision-model:latest",
+		PartBrief:        "The hero follows the clue into the warehouse.",
+		DurationSeconds:  10,
+		AspectRatio:      "16:9",
+		PreviousPrompt:   part1.Prompt,
+		PreviousEnding:   prompt.ExtractEndingState(part1.Prompt),
+		SourceVideoLabel: sourceLabel,
+		ContextProfile:   "auto",
+		KeepModelLoaded:  true,
 	})
 	if err != nil {
 		t.Fatalf("GenerateContinuation: %v", err)
 	}
 	part3, err := eng.GenerateContinuation(ContinuationParams{
-		SessionID:              session,
-		Model:                  "vision-model:latest",
-		PartBrief:              "He reaches the vault.",
-		DurationSeconds:        10,
-		AspectRatio:            "16:9",
-		PreviousPrompt:         part2.Prompt,
-		PreviousEnding:         prompt.ExtractEndingState(part2.Prompt),
-		ContinuationFrameLabel: frameLabel,
-		ContextProfile:         "auto",
-		KeepModelLoaded:        true,
+		SessionID:        session,
+		Model:            "vision-model:latest",
+		PartBrief:        "He reaches the vault.",
+		DurationSeconds:  10,
+		AspectRatio:      "16:9",
+		PreviousPrompt:   part2.Prompt,
+		PreviousEnding:   prompt.ExtractEndingState(part2.Prompt),
+		SourceVideoLabel: sourceLabel,
+		ContextProfile:   "auto",
+		KeepModelLoaded:  true,
 	})
 	if err != nil {
 		t.Fatalf("GenerateContinuation: %v", err)
@@ -391,9 +391,10 @@ func TestGenerateContinuationReusesFrameLabel(t *testing.T) {
 	req2 := string(fake.requests[1])
 	for _, phrase := range []string{
 		"video continuation",
-		`Picture 2\u003e`, // the virtual continuation frame (json-escaped angle bracket)
-		"warehouse",       // the user-written idea for this part
-		`"images":["`,     // real media re-attached
+		"Source video to continue",
+		`Video 2\u003e`, // the source video label (json-escaped angle bracket)
+		"warehouse",     // the user-written idea for this part
+		`"images":["`,   // real media re-attached
 	} {
 		if !strings.Contains(req2, phrase) {
 			t.Errorf("continuation request missing %q", phrase)
@@ -402,9 +403,12 @@ func TestGenerateContinuationReusesFrameLabel(t *testing.T) {
 	if strings.Contains(req2, "MUST start with this exact image") {
 		t.Error("continuation request must not carry the image first_frame anchor")
 	}
+	if strings.Contains(req2, "Picture 2\u003e") {
+		t.Error("continuation request must not invent a synthetic <Picture N> first frame")
+	}
 	req3 := string(fake.requests[2])
-	if !strings.Contains(req3, `Picture 2\u003e`) {
-		t.Fatal("the second extend must reuse the same virtual frame label")
+	if !strings.Contains(req3, `Video 2\u003e`) {
+		t.Fatal("the second extend must reuse the same source video label")
 	}
 }
 

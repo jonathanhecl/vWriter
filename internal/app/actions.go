@@ -333,17 +333,17 @@ func (a *App) systemPromptOverride() *string {
 	return &text
 }
 
-// continuationFrameLabel returns the fixed virtual first-frame label used by
-// every extension of the current story: the first number after the real
-// picture assets, so it never collides with them.
-func (a *App) continuationFrameLabel() string {
+// sourceVideoLabel returns the <Video N> label used by every extension of the
+// current story for the previous part's generated video: the first number
+// after the real video assets, so it never collides with them.
+func (a *App) sourceVideoLabel() string {
 	count := 0
 	for _, asset := range a.engine.Store.List(a.session) {
-		if asset.Type == media.Image {
+		if asset.Type == media.Video {
 			count++
 		}
 	}
-	return fmt.Sprintf("<Picture %d>", count+1)
+	return fmt.Sprintf("<Video %d>", count+1)
 }
 
 // extendStory generates the next part of the story from the previous part's
@@ -378,18 +378,18 @@ func (a *App) extendStory() {
 	a.saveConfig()
 
 	params := engine.ContinuationParams{
-		SessionID:              a.session,
-		Model:                  model,
-		PartBrief:              brief,
-		DurationSeconds:        float64(a.durationSeconds()),
-		AspectRatio:            aspectOptions[a.aspectIndex],
-		PreviousPrompt:         previous,
-		PreviousEnding:         ending,
-		ContinuationFrameLabel: a.continuationFrameLabel(),
-		ContextProfile:         contextProfiles[a.contextIndex],
-		Thinking:               a.thinking.Value,
-		KeepModelLoaded:        a.keepLoaded.Value,
-		SystemPromptOverride:   a.systemPromptOverride(),
+		SessionID:            a.session,
+		Model:                model,
+		PartBrief:            brief,
+		DurationSeconds:      float64(a.durationSeconds()),
+		AspectRatio:          aspectOptions[a.aspectIndex],
+		PreviousPrompt:       previous,
+		PreviousEnding:       ending,
+		SourceVideoLabel:     a.sourceVideoLabel(),
+		ContextProfile:       contextProfiles[a.contextIndex],
+		Thinking:             a.thinking.Value,
+		KeepModelLoaded:      a.keepLoaded.Value,
+		SystemPromptOverride: a.systemPromptOverride(),
 		OnPhase: func(phase string) {
 			a.mu.Lock()
 			a.phase = phase
@@ -490,18 +490,18 @@ func (a *App) regeneratePart() {
 		return
 	}
 	params := engine.ContinuationParams{
-		SessionID:              a.session,
-		Model:                  model,
-		PartBrief:              brief,
-		DurationSeconds:        float64(a.durationSeconds()),
-		AspectRatio:            aspectOptions[a.aspectIndex],
-		PreviousPrompt:         previous,
-		PreviousEnding:         ending,
-		ContinuationFrameLabel: a.continuationFrameLabel(),
-		ContextProfile:         contextProfiles[a.contextIndex],
-		Thinking:               a.thinking.Value,
-		KeepModelLoaded:        a.keepLoaded.Value,
-		SystemPromptOverride:   a.systemPromptOverride(),
+		SessionID:            a.session,
+		Model:                model,
+		PartBrief:            brief,
+		DurationSeconds:      float64(a.durationSeconds()),
+		AspectRatio:          aspectOptions[a.aspectIndex],
+		PreviousPrompt:       previous,
+		PreviousEnding:       ending,
+		SourceVideoLabel:     a.sourceVideoLabel(),
+		ContextProfile:       contextProfiles[a.contextIndex],
+		Thinking:             a.thinking.Value,
+		KeepModelLoaded:      a.keepLoaded.Value,
+		SystemPromptOverride: a.systemPromptOverride(),
 		OnPhase: func(phase string) {
 			a.mu.Lock()
 			a.phase = phase
