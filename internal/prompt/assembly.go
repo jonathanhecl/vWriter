@@ -136,7 +136,10 @@ func finalContract(taskText string) string {
 			"facts derived from a reference. Do not add unsupported subject actions, dialogue, props, visible text, or an "+
 			"invented ending. Music requested without an uploaded audio asset belongs only in non_diegetic_music and must "+
 			"not create audio-reference or audio-reuse semantics. Prefer one continuous shot unless cuts are requested; "+
-			"purposeful camera movement within that shot is allowed. Because H3 receives each source video itself, bind the "+
+			"purposeful camera movement within that shot is allowed. Choose the camera framing, angle, distance, and "+
+			"movement that best serves the emotional beat of each moment — tension, suspense, intimacy, scale — "+
+			"writing it naturally inside the shot with the guide's camera vocabulary and explicit timestamps "+
+			"(e.g. \"[Shot 2] At 00:04.500, the camera pushes in...\"). Because H3 receives each source video itself, bind the "+
 			"complete choreography, temporal order, pacing, and rhythmic character of a motion-only video without "+
 			"reconstructing individual sampled gestures, named steps, poses, expressions, transitions, or a concluding move. "+
 			"When a concrete visible object, character, scene, or effect from <Video N> is reused in the target, describe that "+

@@ -19,6 +19,9 @@ func TestReferenceSystemWrapperContent(t *testing.T) {
 		"Define each <Subject N> exactly once in subject_definitions",
 		"Only the exact lines written inside <d>...</d> are spoken",
 		"keeps lips closed",
+		"Use the camera as a deliberate storytelling tool",
+		"push-ins for tension",
+		"slow pushes or restrained pans for suspense",
 	} {
 		if !strings.Contains(ReferenceSystemWrapper, phrase) {
 			t.Errorf("wrapper missing %q", phrase)
@@ -62,6 +65,8 @@ func TestReferenceContractBoundsCreativeCompletion(t *testing.T) {
 		"Define each <Subject N> exactly once",
 		"characters speak ONLY the exact lines written inside <d>...</d>",
 		"keeps lips closed for the whole video",
+		"Choose the camera framing, angle, distance",
+		"best serves the emotional beat",
 	} {
 		if !strings.Contains(contract, phrase) {
 			t.Errorf("contract missing %q", phrase)
