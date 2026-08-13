@@ -246,6 +246,9 @@ func TestAssembleContinuation(t *testing.T) {
 		"A detective noir set in 1940s New York.",
 		"Refinement instruction",
 		"make the lighting colder",
+		"Cite <Video 2> in retention_analysis",
+		"It is NOT an audio source",
+		"must not be cited as audio reference",
 		"MUST open with exactly the final state",
 	} {
 		if !strings.Contains(user, phrase) {
