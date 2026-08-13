@@ -74,7 +74,7 @@ func (a *App) setModels(entries []modelEntry, err error) {
 func (a *App) connect() {
 	url := strings.TrimSpace(a.urlEditor.Text())
 	if err := a.engine.SetOllamaURL(url); err != nil {
-		a.toasts = append(a.toasts, toastMsg{text: errorText(err), isError: true})
+		a.pushToast(errorText(err), "", true)
 		return
 	}
 	a.cfg.OllamaURL = url
@@ -118,13 +118,13 @@ func (a *App) addFile() {
 		single.Close()
 		if path == "" {
 			a.mu.Lock()
-			a.toasts = append(a.toasts, toastMsg{text: "Could not resolve file path.", isError: true})
+			a.pushToast("Could not resolve file path.", "", true)
 			a.mu.Unlock()
 			return
 		}
 		if _, err := a.engine.Store.Add(a.session, path); err != nil {
 			a.mu.Lock()
-			a.toasts = append(a.toasts, toastMsg{text: errorText(err), details: errorDetails(err), isError: true})
+			a.pushToast(errorText(err), errorDetails(err), true)
 			a.mu.Unlock()
 		} else {
 			a.autoSaveCurrentPreset()
@@ -151,7 +151,7 @@ func (a *App) addMedia() {
 			}
 			if _, err := a.engine.Store.Add(a.session, path); err != nil {
 				a.mu.Lock()
-				a.toasts = append(a.toasts, toastMsg{text: errorText(err), details: errorDetails(err), isError: true})
+				a.pushToast(errorText(err), errorDetails(err), true)
 				a.mu.Unlock()
 			} else {
 				a.autoSaveCurrentPreset()
@@ -218,11 +218,11 @@ func filePath(file io.ReadCloser) string {
 func (a *App) generate() {
 	model := a.selectedModel()
 	if model == "" {
-		a.toasts = append(a.toasts, toastMsg{text: "Select a model first.", isError: true})
+		a.pushToast("Select a model first.", "", true)
 		return
 	}
 	if strings.TrimSpace(a.briefEditor.Text()) == "" {
-		a.toasts = append(a.toasts, toastMsg{text: "Creative brief is required.", isError: true})
+		a.pushToast("Creative brief is required.", "", true)
 		return
 	}
 	a.mu.Lock()
@@ -351,7 +351,7 @@ func (a *App) sourceVideoLabel() string {
 func (a *App) extendStory() {
 	model := a.selectedModel()
 	if model == "" {
-		a.toasts = append(a.toasts, toastMsg{text: "Select a model first.", isError: true})
+		a.pushToast("Select a model first.", "", true)
 		return
 	}
 	if len(a.storyParts) == 0 {
@@ -359,13 +359,13 @@ func (a *App) extendStory() {
 	}
 	brief := strings.TrimSpace(a.extendEditor.Text())
 	if brief == "" {
-		a.toasts = append(a.toasts, toastMsg{text: "Describe what happens in the next part first.", isError: true})
+		a.pushToast("Describe what happens in the next part first.", "", true)
 		return
 	}
 	previous := a.storyParts[len(a.storyParts)-1].Prompt
 	ending := prompt.ExtractEndingState(previous)
 	if ending == "" {
-		a.toasts = append(a.toasts, toastMsg{text: "The previous part has no extractable ending state.", isError: true})
+		a.pushToast("The previous part has no extractable ending state.", "", true)
 		return
 	}
 	a.mu.Lock()
@@ -486,7 +486,7 @@ func (a *App) regeneratePart() {
 		a.mu.Lock()
 		a.generating = false
 		a.mu.Unlock()
-		a.toasts = append(a.toasts, toastMsg{text: "The previous part has no extractable ending state.", isError: true})
+		a.pushToast("The previous part has no extractable ending state.", "", true)
 		return
 	}
 	params := engine.ContinuationParams{
@@ -565,11 +565,11 @@ func (a *App) unloadModel() {
 		}
 		if err := client.Unload(context.Background(), model); err != nil {
 			a.mu.Lock()
-			a.toasts = append(a.toasts, toastMsg{text: errorText(err), isError: true})
+			a.pushToast(errorText(err), "", true)
 			a.mu.Unlock()
 		} else {
 			a.mu.Lock()
-			a.toasts = append(a.toasts, toastMsg{text: "Model unloaded from the server."})
+			a.pushToast("Model unloaded from the server.", "", false)
 			a.mu.Unlock()
 		}
 		a.window.Invalidate()
@@ -610,7 +610,7 @@ func (a *App) saveCurrentPreset(name string) {
 	p, err := a.presetStore.AddOrUpdate(name, a.briefEditor.Text(), a.durationSeconds(), a.cfg.AspectRatio, sysPrompt, a.outputEditor.Text(), presetAssets, a.presetParts())
 	if err != nil {
 		a.mu.Lock()
-		a.toasts = append(a.toasts, toastMsg{text: "Failed to save preset: " + err.Error(), isError: true})
+		a.pushToast("Failed to save preset: "+err.Error(), "", true)
 		a.mu.Unlock()
 		return
 	}
@@ -624,7 +624,7 @@ func (a *App) saveCurrentPreset(name string) {
 		}
 	}
 	a.mu.Lock()
-	a.toasts = append(a.toasts, toastMsg{text: fmt.Sprintf("Saved template '%s'", p.Name)})
+	a.pushToast(fmt.Sprintf("Saved template '%s'", p.Name), "", false)
 	a.mu.Unlock()
 	a.window.Invalidate()
 }
@@ -788,7 +788,7 @@ func (a *App) deleteCurrentPreset() {
 		}
 	}
 	a.mu.Lock()
-	a.toasts = append(a.toasts, toastMsg{text: fmt.Sprintf("Deleted template '%s'", p.Name)})
+	a.pushToast(fmt.Sprintf("Deleted template '%s'", p.Name), "", false)
 	a.mu.Unlock()
 	a.window.Invalidate()
 }

@@ -374,7 +374,7 @@ func (a *App) copyAllParts(gtx layout.Context) {
 		return
 	}
 	gtx.Execute(clipboard.WriteCmd{Data: nopCloser{strings.NewReader(a.storyText())}})
-	a.toasts = append(a.toasts, toastMsg{text: fmt.Sprintf("Story (%d parts) copied to the clipboard.", len(a.storyParts))})
+	a.pushToast(fmt.Sprintf("Story (%d parts) copied to the clipboard.", len(a.storyParts)), "", false)
 	if a.window != nil {
 		a.window.Invalidate()
 	}

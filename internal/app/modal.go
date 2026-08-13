@@ -47,7 +47,7 @@ func (a *App) layoutModal(gtx layout.Context) layout.Dimensions {
 		endpoints := modal.endpoints.Value
 		updated, err := a.engine.Store.Resample(a.session, asset.ID, frameModes[a.modalFrameIndex], &endpoints)
 		if err != nil {
-			a.toasts = append(a.toasts, toastMsg{text: errorText(err), isError: true})
+			a.pushToast(errorText(err), "", true)
 		} else {
 			delete(a.images, asset.PreviewPath)
 			a.modal = updated

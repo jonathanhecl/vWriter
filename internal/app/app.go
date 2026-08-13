@@ -9,6 +9,7 @@ import (
 	"image"
 	"strings"
 	"sync"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/gesture"
@@ -36,6 +37,13 @@ type toastMsg struct {
 	text    string
 	details string
 	isError bool
+	created time.Time // set by pushToast; drives auto-dismissal
+}
+
+// pushToast queues a notification. Success toasts auto-dismiss after
+// toastLifetime; error toasts persist until dismissed or copied.
+func (a *App) pushToast(text, details string, isError bool) {
+	a.toasts = append(a.toasts, toastMsg{text: text, details: details, isError: isError, created: time.Now()})
 }
 
 // App is the root UI state.
@@ -288,7 +296,7 @@ func (a *App) applyAsync() {
 	defer a.mu.Unlock()
 	if a.pendingResult != nil || a.pendingErr != nil {
 		if a.pendingErr != nil {
-			a.toasts = append(a.toasts, toastMsg{text: errorText(a.pendingErr), details: errorDetails(a.pendingErr), isError: true})
+			a.pushToast(errorText(a.pendingErr), errorDetails(a.pendingErr), true)
 		} else {
 			a.applyResult(a.pendingResult)
 		}
@@ -312,7 +320,6 @@ func (a *App) applyResult(res *engine.Result) {
 	case "regenerate":
 		if a.pendingIndex >= 0 && a.pendingIndex < len(a.storyParts) {
 			a.storyParts[a.pendingIndex].Prompt = res.Prompt
-			a.storyParts = a.storyParts[:a.pendingIndex+1]
 			a.partIndex = a.pendingIndex
 		}
 	case "refine":
@@ -330,13 +337,10 @@ func (a *App) applyResult(res *engine.Result) {
 	a.hasResult = true
 	a.highlightMode = true
 	if res.RepairApplied {
-		a.toasts = append(a.toasts, toastMsg{text: "One automatic format repair was applied."})
+		a.pushToast("One automatic format repair was applied.", "", false)
 	}
 	if res.RepairAttempted && !res.RepairApplied {
-		a.toasts = append(a.toasts, toastMsg{
-			text:    "Automatic format repair could not fix all issues. Review the prompt before using it.",
-			isError: true,
-		})
+		a.pushToast("Automatic format repair could not fix all issues. Review the prompt before using it.", "", true)
 	}
 	a.autoSaveCurrentPreset()
 }
@@ -367,7 +371,7 @@ func (a *App) copyOutput(gtx layout.Context) {
 		return
 	}
 	gtx.Execute(clipboard.WriteCmd{Data: nopCloser{strings.NewReader(text)}})
-	a.toasts = append(a.toasts, toastMsg{text: label + " copied to the clipboard."})
+	a.pushToast(label+" copied to the clipboard.", "", false)
 	if a.window != nil {
 		a.window.Invalidate()
 	}
