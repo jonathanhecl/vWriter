@@ -295,6 +295,7 @@ func (a *App) refine() {
 		Model:                a.selectedModel(),
 		CurrentPrompt:        current,
 		Instruction:          instruction,
+		DurationSeconds:      float64(a.durationSeconds()),
 		ContextProfile:       contextProfiles[a.contextIndex],
 		Thinking:             a.thinking.Value,
 		KeepModelLoaded:      a.keepLoaded.Value,

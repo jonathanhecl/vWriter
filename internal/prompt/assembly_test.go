@@ -352,16 +352,20 @@ func TestAssembleRefinement(t *testing.T) {
 		CurrentPrompt:     "subject_definitions:\n...\n\n",
 		Instruction:       "Make the lighting colder.",
 		CachedObservation: "first-pass observation",
+		DurationSeconds:   10,
 	})
 	if err != nil {
 		t.Fatalf("AssembleRefinement: %v", err)
 	}
 	user := assembled.Messages[len(assembled.Messages)-1].Content
 	for _, phrase := range []string{"Rewrite the current H3 prompt", "media is intentionally not attached",
-		"first-pass observation", "Make the lighting colder."} {
+		"first-pass observation", "Make the lighting colder.", "strictly before the end of the clip"} {
 		if !strings.Contains(user, phrase) {
 			t.Errorf("refinement user message missing %q", phrase)
 		}
+	}
+	if assembled.Input.DurationSeconds != 10 {
+		t.Fatalf("refinement input duration = %v, want 10", assembled.Input.DurationSeconds)
 	}
 	if len(assembled.MediaInputs) != 0 {
 		t.Fatal("refinement must not attach media")

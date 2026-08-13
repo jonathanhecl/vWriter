@@ -165,6 +165,7 @@ type RefineParams struct {
 	Model                string
 	CurrentPrompt        string
 	Instruction          string
+	DurationSeconds      float64
 	ContextProfile       string
 	Thinking             bool
 	KeepModelLoaded      bool
@@ -380,6 +381,7 @@ func (e *Engine) Refine(params RefineParams) (*Result, error) {
 		CurrentPrompt:        params.CurrentPrompt,
 		Instruction:          params.Instruction,
 		CachedObservation:    e.CachedGeneration(params.SessionID),
+		DurationSeconds:      params.DurationSeconds,
 		SystemPromptOverride: params.SystemPromptOverride,
 	})
 	if err != nil {

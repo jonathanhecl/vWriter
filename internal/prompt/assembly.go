@@ -83,6 +83,7 @@ type RefineRequest struct {
 	CurrentPrompt        string
 	Instruction          string
 	CachedObservation    string
+	DurationSeconds      float64
 	SystemPromptOverride *string
 }
 
@@ -113,6 +114,9 @@ func refineBlock(refine string) string {
 // durationRule reminds the model that every event must happen strictly before
 // the clip ends, never on or past the final second.
 func durationRule(durationSeconds float64) string {
+	if durationSeconds <= 0 {
+		return ""
+	}
 	return fmt.Sprintf("The target video is %g seconds long: every event, action, cut, and shot change must occur strictly before the end of the clip (before 00:%02d.000); nothing may happen on or past the final second. ", durationSeconds, int(durationSeconds))
 }
 
@@ -331,9 +335,9 @@ func AssembleRefinement(req RefineRequest) (*Assembled, error) {
 		"Rewrite the current H3 prompt according to the revision instruction. "+
 			"Return only the complete revised H3 prompt. Do not discuss the changes.\n\n"+
 			"Reference manifest (text only; media is intentionally not attached):\n%s\n\n"+
-			"Cached first-pass observation:\n%s\n\nCurrent prompt:\n%s\n\nRevision instruction:\n%s\n\n%s",
+			"Cached first-pass observation:\n%s\n\nCurrent prompt:\n%s\n\nRevision instruction:\n%s\n\n%s%s",
 		referenceManifestText(declared), observation, current, instruction,
-		finalContract(current+" "+instruction),
+		durationRule(req.DurationSeconds), finalContract(current+" "+instruction),
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {
@@ -347,9 +351,10 @@ func AssembleRefinement(req RefineRequest) (*Assembled, error) {
 		Messages:      append(messages, Message{Role: "user", Content: userContent}),
 		MediaInputs:   nil,
 		Input: AssembledInput{
-			CurrentPrompt: current,
-			Instruction:   instruction,
-			Manifest:      req.Manifest,
+			CurrentPrompt:   current,
+			Instruction:     instruction,
+			DurationSeconds: req.DurationSeconds,
+			Manifest:        req.Manifest,
 		},
 	}, nil
 }

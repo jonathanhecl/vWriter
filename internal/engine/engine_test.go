@@ -451,6 +451,31 @@ func TestRegeneratePart2KeepsSourceVideoReference(t *testing.T) {
 	}
 }
 
+func TestRefineClampsTimestamps(t *testing.T) {
+	fake := &fakeOllama{t: t, responses: []string{
+		"summary:\n[reference generation] A shot.\n\ndetailed_description:\n[Shot 1] A quiet room.\n[Shot 2] At 00:12.000, the camera cuts to the door.\n\noverall_soundscape:\nN/A\n\nnon_diegetic_music:\nN/A",
+	}}
+	eng, session := testRig(t, fake)
+
+	result, err := eng.Refine(RefineParams{
+		SessionID:       session,
+		Model:           "vision-model:latest",
+		CurrentPrompt:   "summary:\n[reference generation] A shot.",
+		Instruction:     "Make the lighting colder.",
+		DurationSeconds: 10,
+		ContextProfile:  "auto",
+	})
+	if err != nil {
+		t.Fatalf("Refine: %v", err)
+	}
+	if strings.Contains(result.Prompt, "00:12.000") {
+		t.Fatalf("refine output must clamp out-of-range timestamps, got %q", result.Prompt)
+	}
+	if !strings.Contains(result.Prompt, "00:09.999") {
+		t.Fatalf("refine output must use the last valid moment, got %q", result.Prompt)
+	}
+}
+
 func TestRefineWithoutMedia(t *testing.T) {
 	fake := &fakeOllama{t: t, responses: []string{buildPrompt(validPrompt, 420)}}
 	eng, session := testRig(t, fake)
