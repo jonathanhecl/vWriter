@@ -136,6 +136,19 @@ func TestAssembleRequestValidation(t *testing.T) {
 	}
 }
 
+func TestAssembleRequestRefineInstruction(t *testing.T) {
+	req := validGenerateRequest()
+	req.RefineInstruction = "make the lighting colder"
+	assembled, err := AssembleRequest(req)
+	if err != nil {
+		t.Fatalf("AssembleRequest: %v", err)
+	}
+	user := assembled.Messages[len(assembled.Messages)-1].Content
+	if !strings.Contains(user, "Refinement instruction") || !strings.Contains(user, "make the lighting colder") {
+		t.Fatalf("refine instruction missing from user content: %q", user)
+	}
+}
+
 func TestAnalysisToggleExcludesVisualInput(t *testing.T) {
 	req := validGenerateRequest()
 	req.Manifest.Assets[0].AnalysisRequested = false
@@ -200,13 +213,15 @@ func validContinuationRequest() ContinuationRequest {
 	manifest := validManifest()
 	manifest.Assets[0].Role = media.RoleFirstFrame
 	return ContinuationRequest{
-		Manifest:         manifest,
-		PartBrief:        "The hero follows the clue into the warehouse.",
-		DurationSeconds:  10,
-		AspectRatio:      "16:9",
-		PreviousPrompt:   endingFixture,
-		PreviousEnding:   ExtractEndingState(endingFixture),
-		SourceVideoLabel: "<Video 2>",
+		Manifest:          manifest,
+		PartBrief:         "The hero follows the clue into the warehouse.",
+		StoryBrief:        "A detective noir set in 1940s New York.",
+		DurationSeconds:   10,
+		AspectRatio:       "16:9",
+		PreviousPrompt:    endingFixture,
+		PreviousEnding:    ExtractEndingState(endingFixture),
+		SourceVideoLabel:  "<Video 2>",
+		RefineInstruction: "make the lighting colder",
 	}
 }
 
@@ -227,6 +242,10 @@ func TestAssembleContinuation(t *testing.T) {
 		"camera holds on his face",
 		"Previous part prompt",
 		"The hero follows the clue into the warehouse.",
+		"Story brief",
+		"A detective noir set in 1940s New York.",
+		"Refinement instruction",
+		"make the lighting colder",
 		"MUST open with exactly the final state",
 	} {
 		if !strings.Contains(user, phrase) {

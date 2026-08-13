@@ -325,6 +325,9 @@ func (a *App) applyResult(res *engine.Result) {
 	case "regenerate":
 		if a.pendingIndex >= 0 && a.pendingIndex < len(a.storyParts) {
 			a.storyParts[a.pendingIndex].Prompt = res.Prompt
+			if a.pendingIndex == 0 {
+				a.storyParts[0].Brief = a.briefEditor.Text()
+			}
 			a.partIndex = a.pendingIndex
 		}
 	case "refine":

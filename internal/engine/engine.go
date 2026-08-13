@@ -147,6 +147,7 @@ type GenerateParams struct {
 	SessionID            string
 	Model                string
 	CreativeBrief        string
+	RefineInstruction    string
 	DurationSeconds      float64
 	AspectRatio          string
 	ContextProfile       string
@@ -208,6 +209,7 @@ func (e *Engine) Generate(params GenerateParams) (*Result, error) {
 	assembled, err := prompt.AssembleRequest(prompt.GenerateRequest{
 		Manifest:             e.Store.Manifest(params.SessionID),
 		CreativeBrief:        params.CreativeBrief,
+		RefineInstruction:    params.RefineInstruction,
 		DurationSeconds:      params.DurationSeconds,
 		AspectRatio:          params.AspectRatio,
 		SystemPromptOverride: params.SystemPromptOverride,
@@ -292,11 +294,13 @@ type ContinuationParams struct {
 	SessionID            string
 	Model                string
 	PartBrief            string
+	StoryBrief           string
 	DurationSeconds      float64
 	AspectRatio          string
 	PreviousPrompt       string
 	PreviousEnding       string
 	SourceVideoLabel     string
+	RefineInstruction    string
 	ContextProfile       string
 	Thinking             bool
 	KeepModelLoaded      bool
@@ -328,11 +332,13 @@ func (e *Engine) GenerateContinuation(params ContinuationParams) (*Result, error
 	assembled, err := prompt.AssembleContinuation(prompt.ContinuationRequest{
 		Manifest:             e.Store.Manifest(params.SessionID),
 		PartBrief:            params.PartBrief,
+		StoryBrief:           params.StoryBrief,
 		DurationSeconds:      params.DurationSeconds,
 		AspectRatio:          params.AspectRatio,
 		PreviousPrompt:       params.PreviousPrompt,
 		PreviousEnding:       params.PreviousEnding,
 		SourceVideoLabel:     params.SourceVideoLabel,
+		RefineInstruction:    params.RefineInstruction,
 		SystemPromptOverride: params.SystemPromptOverride,
 	})
 	if err != nil {

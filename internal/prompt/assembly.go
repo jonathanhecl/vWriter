@@ -72,6 +72,7 @@ type GenerateRequest struct {
 	CreativeBrief        string
 	DurationSeconds      float64
 	AspectRatio          string
+	RefineInstruction    string // optional: a refinement to apply when regenerating
 	SystemPromptOverride *string
 }
 
@@ -89,12 +90,32 @@ type RefineRequest struct {
 type ContinuationRequest struct {
 	Manifest             media.Manifest
 	PartBrief            string
+	StoryBrief           string // the main creative brief, as story-wide background
 	DurationSeconds      float64
 	AspectRatio          string
 	PreviousPrompt       string
 	PreviousEnding       string
 	SourceVideoLabel     string
+	RefineInstruction    string // optional: a refinement to apply when regenerating
 	SystemPromptOverride *string
+}
+
+// refineBlock renders the optional refinement instruction section, or "".
+func refineBlock(refine string) string {
+	refine = trimSpace(refine)
+	if refine == "" {
+		return ""
+	}
+	return "Refinement instruction (apply it to the generation):\n" + refine + "\n\n"
+}
+
+// storyBriefBlock renders the optional story-wide brief section, or "".
+func storyBriefBlock(brief string) string {
+	brief = trimSpace(brief)
+	if brief == "" {
+		return ""
+	}
+	return "Story brief (background context for the whole story):\n" + brief + "\n\n"
 }
 
 var explicitEditPattern = regexp.MustCompile(`(?is)\b(?:edit(?:ing)?|continue|continuation|extend|remix|re-cut)\b.{0,40}\bvideo\b|\bvideo\s+editing\b`)
@@ -247,8 +268,10 @@ func AssembleRequest(req GenerateRequest) (*Assembled, error) {
 	userContent := fmt.Sprintf(
 		"Mode: Reference\nDuration: %g seconds\nAspect ratio: %s\n\n"+
 			"Reference manifest (audio is not analyzed by the local model; derive its copy/reference role only from the user's words and do not invent its content):\n%s\n\n"+
-			"Creative brief:\n%s\n\n%s",
-		req.DurationSeconds, req.AspectRatio, referenceManifestText(declared), brief, finalContract(brief),
+			"Creative brief:\n%s\n\n"+
+			"%s%s",
+		req.DurationSeconds, req.AspectRatio, referenceManifestText(declared), brief,
+		refineBlock(req.RefineInstruction), finalContract(brief),
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {
@@ -383,9 +406,12 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 			"visibly carried over and subjects stay consistent.\n\n"+
 			"How %s ends — this part MUST open with exactly this state:\n%s\n\n"+
 			"Previous part prompt (this is the exact content of %s; keep every subject, scene, style, and continuity element consistent):\n%s\n\n"+
-			"Creative brief for this part:\n%s\n\n%s",
+			"%s"+
+			"Creative brief for this part:\n%s\n\n"+
+			"%s%s",
 		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
-		source, source, source, source, ending, source, previous, brief, contract,
+		source, source, source, source, ending, source, previous,
+		storyBriefBlock(req.StoryBrief), brief, refineBlock(req.RefineInstruction), contract,
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {
