@@ -147,6 +147,10 @@ func finalContract(taskText string) string {
 			"listed there. A character name in the brief refers to the reference labeled with that name; never "+
 			"duplicate that person as a second subject and never add characters beyond those named in the brief or "+
 			"bound to a reference. "+
+			"Write everything in English: section headings, prose, and all dialogue. Translate the user's spoken "+
+			"lines into English unless the user explicitly asks to keep another language, and never annotate an "+
+			"object, place, action, or name in a second language. Define each <Subject N> exactly once in "+
+			"subject_definitions and never re-define an already-defined subject. "+
 			"Use the official detail budget for grounded target composition, placement, lighting, atmosphere, camera treatment, "+
 			"supported action progression, and reference application; never pad solely to reach a word count. Return only the complete "+
 			"prompt with all six required sections in the official order and no commentary outside the prompt.",

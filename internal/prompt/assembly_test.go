@@ -14,14 +14,15 @@ func TestReferenceSystemWrapperContent(t *testing.T) {
 		"transfer only that role",
 		"must not contribute its performer identity",
 		"never invent or pad details solely",
-		"preserve user-supplied dialogue, lyrics, and visible text verbatim",
+		"Translate any user-supplied dialogue, lyrics, or visible text into English",
 		"unsupported subject actions, expressions, events, transitions",
+		"Define each <Subject N> exactly once in subject_definitions",
 	} {
 		if !strings.Contains(ReferenceSystemWrapper, phrase) {
 			t.Errorf("wrapper missing %q", phrase)
 		}
 	}
-	for _, phrase := range []string{"never return fewer", "spins", "kisses", "GRWM"} {
+	for _, phrase := range []string{"never return fewer", "spins", "kisses", "GRWM", "preserve all user-supplied dialogue words verbatim"} {
 		if strings.Contains(ReferenceSystemWrapper, phrase) {
 			t.Errorf("wrapper must not contain %q", phrase)
 		}
@@ -54,6 +55,9 @@ func TestReferenceContractBoundsCreativeCompletion(t *testing.T) {
 		"through an appropriate <Subject N>",
 		"do not automatically create a separate subject for ordinary motion transfer",
 		"non_diegetic_music must be N/A",
+		"Write everything in English: section headings, prose, and all dialogue",
+		"Translate the user's spoken lines into English",
+		"Define each <Subject N> exactly once",
 	} {
 		if !strings.Contains(contract, phrase) {
 			t.Errorf("contract missing %q", phrase)

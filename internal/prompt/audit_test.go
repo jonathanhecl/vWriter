@@ -5,6 +5,16 @@ import (
 	"testing"
 )
 
+func TestDuplicateSubjectDefinitions(t *testing.T) {
+	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n<Subject 2> stands behind.\n<Subject 1> appears again redefined.\n\nsummary:\n[reference generation] A shot.\n"
+	if got := DuplicateSubjectDefinitions(prompt); len(got) != 1 || got[0] != "<Subject 1>" {
+		t.Fatalf("duplicate detection = %v, want [<Subject 1>]", got)
+	}
+	if got := DuplicateSubjectDefinitions("subject_definitions:\n<Subject 1> comes from <Picture 1>.\n<Subject 2> stands behind.\n"); len(got) != 0 {
+		t.Fatalf("clean subject definitions must not warn, got %v", got)
+	}
+}
+
 // referencePrompt builds a structurally valid full-reference prompt whose
 // detailed_description has exactly wordCount filler words.
 func referencePrompt(wordCount int, includeSoundscape bool) string {

@@ -123,6 +123,26 @@ func dedupe(values []string) []string {
 	return out
 }
 
+// DuplicateSubjectDefinitions lists <Subject N> tags defined more than once in
+// subject_definitions, a sign the model re-defined a character it already
+// introduced.
+func DuplicateSubjectDefinitions(promptText string) []string {
+	var dupes []string
+	seen := map[string]bool{}
+	for _, line := range strings.Split(sectionContent(promptText, "subject_definitions"), "\n") {
+		groups := subjectTagPattern.FindStringSubmatch(line)
+		if groups == nil {
+			continue
+		}
+		tag := "<Subject " + groups[1] + ">"
+		if seen[tag] {
+			dupes = append(dupes, tag)
+		}
+		seen[tag] = true
+	}
+	return dedupe(dupes)
+}
+
 // AuditPrompt checks a generated prompt against the official full-reference
 // output format and vWriter quality rules.
 func AuditPrompt(prompt string, durationSeconds float64, cameraStructureAllowed bool) *Audit {
@@ -226,6 +246,9 @@ func AuditPrompt(prompt string, durationSeconds float64, cameraStructureAllowed 
 		audit.QualityWarnings = []string{"severely short detailed_description"}
 	case "short_internal_warning":
 		audit.QualityWarnings = []string{"short detailed_description"}
+	}
+	if dupes := DuplicateSubjectDefinitions(prompt); len(dupes) > 0 {
+		audit.QualityWarnings = append(audit.QualityWarnings, "duplicate subject definitions: "+strings.Join(dupes, ", "))
 	}
 	audit.QualityTargetPass = len(audit.QualityWarnings) == 0
 
