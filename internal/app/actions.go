@@ -419,7 +419,7 @@ func (a *App) extendStory() {
 // regeneratePart re-generates the selected part. Part 1 is a fresh generation
 // from the main brief; later parts are continuations of the previous part's
 // ending using the brief the user wrote for that part. Following parts are
-// dropped because their opening frames depend on the regenerated ending.
+// kept intact so the ideas already written in them are never lost.
 func (a *App) regeneratePart() {
 	model := a.selectedModel()
 	if model == "" || !a.hasResult {
