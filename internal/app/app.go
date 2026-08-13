@@ -69,6 +69,7 @@ type App struct {
 	hasResult     bool
 	dirtyOutput   bool
 	images        map[string]image.Image // asset preview path -> decoded
+	busyTag       struct{}               // pointer tag of the full-window busy overlay
 
 	// windowMode tracks the last ConfigEvent mode so frame() only persists
 	// the window size while windowed (UI goroutine only).

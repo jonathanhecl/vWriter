@@ -21,15 +21,6 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 				return a.layoutOutputHeader(gtx)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				a.mu.Lock()
-				generating := a.generating
-				phase := a.phase
-				tokens := a.streamTokens
-				a.mu.Unlock()
-
-				if generating && strings.TrimSpace(a.outputEditor.Text()) == "" {
-					return a.layoutOutputGenerating(gtx, phase, tokens)
-				}
 				if !a.hasResult && strings.TrimSpace(a.outputEditor.Text()) == "" {
 					return a.layoutOutputEmpty(gtx)
 				}
@@ -58,54 +49,6 @@ func (a *App) layoutOutput(gtx layout.Context) layout.Dimensions {
 				return a.layoutExtendBar(gtx)
 			}),
 		)
-	})
-}
-
-// layoutOutputGenerating renders a centered loading card inside the prompt workspace while generating.
-func (a *App) layoutOutputGenerating(gtx layout.Context, phase string, tokens int) layout.Dimensions {
-	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Max.X = gtx.Dp(440)
-		return card(gtx, 22, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						loaderGtx := gtx
-						loaderGtx.Constraints.Min = image.Pt(gtx.Dp(24), gtx.Dp(24))
-						loaderGtx.Constraints.Max = loaderGtx.Constraints.Min
-						l := material.Loader(a.theme)
-						l.Color = colorAccent
-						return l.Layout(loaderGtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(a.theme, 15, "Generating video prompt...")
-						l.Color = colorText
-						return l.Layout(gtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if phase == "" {
-						return layout.Dimensions{}
-					}
-					return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(a.theme, 13, phase)
-						l.Color = colorTextDim
-						return l.Layout(gtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if tokens <= 0 {
-						return layout.Dimensions{}
-					}
-					return layout.Inset{Top: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(a.theme, 12, fmt.Sprintf("%d tokens generated", tokens))
-						l.Color = colorAccent
-						return l.Layout(gtx)
-					})
-				}),
-			)
-		})
 	})
 }
 

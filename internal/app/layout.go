@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gioui.org/gesture"
+	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -54,6 +55,70 @@ func (a *App) layout(gtx layout.Context) {
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutModal(gtx) }),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutSavePresetModal(gtx) }),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutAssetRoleModal(gtx) }),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions { return a.layoutBusy(gtx) }),
+	)
+}
+
+// layoutBusy renders a full-window blocking overlay while any generation
+// (generate, extend, regenerate, or refine) is running. It claims all pointer
+// events so no other control is usable until the operation finishes or fails.
+func (a *App) layoutBusy(gtx layout.Context) layout.Dimensions {
+	a.mu.Lock()
+	generating := a.generating
+	phase := a.phase
+	tokens := a.streamTokens
+	a.mu.Unlock()
+	if !generating {
+		return layout.Dimensions{}
+	}
+	return layout.Stack{}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			full := image.Rectangle{Max: gtx.Constraints.Max}
+			paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 0, B: 0, A: 0x99}, clip.Rect(full).Op())
+			defer clip.Rect(full).Push(gtx.Ops).Pop()
+			event.Op(gtx.Ops, &a.busyTag)
+			for {
+				_, ok := gtx.Event(pointer.Filter{Target: &a.busyTag, Kinds: pointer.Press | pointer.Drag | pointer.Scroll})
+				if !ok {
+					break
+				}
+			}
+			return layout.Dimensions{Size: gtx.Constraints.Max}
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Max.X = gtx.Dp(340)
+				gtx.Constraints.Min.X = gtx.Dp(280)
+				return card(gtx, 16, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							loaderGtx := gtx
+							loaderGtx.Constraints.Min = image.Pt(gtx.Dp(28), gtx.Dp(28))
+							loaderGtx.Constraints.Max = loaderGtx.Constraints.Min
+							l := material.Loader(a.theme)
+							l.Color = colorAccent
+							return l.Layout(loaderGtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								text := phaseLabel(phase)
+								if phase == engine.PhaseGenerating && tokens > 0 {
+									text = fmt.Sprintf("%s · %d tokens", text, tokens)
+								}
+								l := material.Label(a.theme, 14, text)
+								l.Color = colorText
+								return l.Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.dangerButton(gtx, &a.cancelBtn, "Cancel")
+							})
+						}),
+					)
+				})
+			})
+		}),
 	)
 }
 
@@ -313,7 +378,7 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					if generating {
-						return a.dangerButton(gtx, &a.cancelBtn, "Cancel")
+						return layout.Dimensions{}
 					}
 					return a.primaryButton(gtx, &a.generateBtn, "Generate prompt")
 				})
