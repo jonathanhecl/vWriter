@@ -76,3 +76,18 @@ func TestReferenceContextExcerpt(t *testing.T) {
 		t.Fatalf("excerpt must exclude the shot timeline, got %q", got)
 	}
 }
+
+func TestExtractEndingStateSingleLongShotStaysShort(t *testing.T) {
+	filler := strings.Repeat("The hero keeps sprinting across the rain-slick rooftops, leaping from ledge to ledge. ", 8)
+	longShot := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nsummary:\n[reference generation] A chase.\n\nretention_analysis:\n<Subject 1>: fully_preserved.\n\ndetailed_description:\n[Shot 1] " + filler + "He finally reaches the broken window where he stops to catch his breath.\n\noverall_soundscape:\nN/A\n\nnon_diegetic_music:\nN/A"
+	got := ExtractEndingState(longShot)
+	if len(got) > 250 {
+		t.Fatalf("ending too long (%d), got %q", len(got), got)
+	}
+	if !strings.Contains(got, "broken window") {
+		t.Fatalf("ending must keep the final state, got %q", got)
+	}
+	if len(got) >= len(filler) {
+		t.Fatalf("ending must be only a tail of the description, got %q", got)
+	}
+}

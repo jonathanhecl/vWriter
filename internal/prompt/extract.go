@@ -13,19 +13,40 @@ var extractShotPattern = regexp.MustCompile(`(?i)\[Shot\s+\d+\]`)
 // ExtractEndingState returns the final scene state of a generated prompt: the
 // text after the last [Shot N] marker inside detailed_description, which
 // describes the exact frame where the video ends. It falls back to the summary
-// and then to the whole detailed_description when no shot markers are present.
+// and then to a short tail of detailed_description when no shot markers are
+// present. The result is always short, so a long shot description never leaks
+// into the next part's opening state.
 func ExtractEndingState(promptText string) string {
 	detailed := sectionContent(promptText, "detailed_description")
 	if matches := extractShotPattern.FindAllStringIndex(detailed, -1); len(matches) > 0 {
 		last := matches[len(matches)-1]
-		if tail := cleanState(detailed[last[1]:]); tail != "" {
+		if tail := shortEnding(detailed[last[1]:]); tail != "" {
 			return tail
 		}
 	}
 	if summary := cleanState(sectionContent(promptText, "summary")); summary != "" {
 		return summary
 	}
-	return cleanState(detailed)
+	return shortEnding(detailed)
+}
+
+// shortEnding keeps only the final state of a tail: at most maxEndingChars,
+// trimmed to a sentence boundary, so a long detailed_description cannot
+// become the whole opening state of the next part.
+func shortEnding(text string) string {
+	const maxEndingChars = 250
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	if len(text) > maxEndingChars {
+		text = text[len(text)-maxEndingChars:]
+		if index := strings.Index(text, ". "); index > 0 {
+			text = text[index+2:]
+		}
+		text = strings.TrimSpace(text)
+	}
+	return text
 }
 
 // sectionContent returns the text of one section, from its "name:" header up
