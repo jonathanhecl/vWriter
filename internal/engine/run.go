@@ -29,6 +29,8 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 	if strings.TrimSpace(sanitized) == "" {
 		sanitized = text
 	}
+	// Shot timestamps must never exceed the configured duration of the part.
+	sanitized = prompt.ClampTimestamps(sanitized, assembled.Input.DurationSeconds)
 	result := &Result{Prompt: sanitized, Audit: enrichAudit(assembled, sanitized), Plan: plan}
 	if sanitized != text {
 		result.RepairApplied = true

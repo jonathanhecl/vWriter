@@ -27,6 +27,28 @@ func TestLooseSpeechLines(t *testing.T) {
 	}
 }
 
+func TestClampTimestamps(t *testing.T) {
+	text := "detailed_description:\n[Shot 1] The hero walks in.\n[Shot 2] At 00:04.500, the camera cuts to the window. By 00:10.500, he leaves.\n[Shot 3] At 00:12.000, the door closes. At 01:30.000, all is quiet.\n"
+	got := ClampTimestamps(text, 10)
+	if strings.Contains(got, "00:10.500") || strings.Contains(got, "00:12.000") || strings.Contains(got, "01:30.000") {
+		t.Fatalf("out-of-range timestamps must be clamped, got %q", got)
+	}
+	if !strings.Contains(got, "00:10.000") {
+		t.Fatalf("clamped value must be the duration (00:10.000), got %q", got)
+	}
+	if !strings.Contains(got, "00:04.500") {
+		t.Fatalf("in-range timestamps must stay untouched, got %q", got)
+	}
+	// Fractional duration.
+	frac := ClampTimestamps("[Shot 2] At 00:09.900, the shot ends.", 9.5)
+	if !strings.Contains(frac, "00:09.500") {
+		t.Fatalf("fractional clamp = %q, want 00:09.500", frac)
+	}
+	if got := ClampTimestamps("[Shot 1] At 00:05.000, ok.", 10); got != "[Shot 1] At 00:05.000, ok." {
+		t.Fatalf("clean timestamps must not change, got %q", got)
+	}
+}
+
 // referencePrompt builds a structurally valid full-reference prompt whose
 // detailed_description has exactly wordCount filler words.
 func referencePrompt(wordCount int, includeSoundscape bool) string {

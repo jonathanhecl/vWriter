@@ -1,6 +1,8 @@
 package prompt
 
 import (
+	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,6 +22,7 @@ var ReferenceSections = []string{
 var (
 	timestampCandidate = regexp.MustCompile(`\d{2}:\d{2,3}(?:\.\d{1,3})?`)
 	validTimestamp     = regexp.MustCompile(`^(\d{2}):(\d{2})\.(\d{3})$`)
+	timestampToken     = regexp.MustCompile(`\d{2}:\d{2}\.\d{3}`)
 	cameraDirection    = regexp.MustCompile(`(?i)\b(?:cut(?:s)?\s+to|zoom(?:s|ed|ing)?(?:-in|-out|\s+in|\s+out)?|pan(?:s|ned|ning)?(?:\s+(?:up|down|left|right|across))?|doll(?:y|ies|ied|ying)|tracking shot|camera\s+(?:moves?|pulls?|pushes?|pans?|zooms?|tracks?|dollies?))\b`)
 	internalVideoTerms = regexp.MustCompile(`(?i)\b(?:contact sheet|sheet cell(?:s)?|sampled frame(?:s)?|sample frame(?:s)?|\d+(?:\.\d+)?s\s+mark)\b`)
 	wordPattern        = regexp.MustCompile(`[A-Za-z]+(?:[-'][A-Za-z]+)*`)
@@ -160,6 +163,40 @@ func LooseSpeechLines(promptText string) []string {
 		lines = append(lines, strings.TrimSpace(line))
 	}
 	return dedupe(lines)
+}
+
+// ClampTimestamps rewrites every MM:SS.mmm timestamp that falls beyond the
+// target duration to the latest valid time, so no shot time can exceed the
+// configured video length (e.g. a 10-second part can never contain
+// "00:10.500").
+func ClampTimestamps(text string, durationSeconds float64) string {
+	if durationSeconds <= 0 {
+		return text
+	}
+	clamped := fmt.Sprintf("%02d:%02d.%03d",
+		int(durationSeconds)/60,
+		int(durationSeconds)%60,
+		int(math.Round((durationSeconds-math.Floor(durationSeconds))*1000)))
+	changed := false
+	out := timestampToken.ReplaceAllStringFunc(text, func(match string) string {
+		groups := validTimestamp.FindStringSubmatch(match)
+		if groups == nil {
+			return match
+		}
+		minutes, _ := strconv.Atoi(groups[1])
+		seconds, _ := strconv.Atoi(groups[2])
+		millis, _ := strconv.Atoi(groups[3])
+		total := float64(minutes*60+seconds) + float64(millis)/1000
+		if total > durationSeconds+0.001 {
+			changed = true
+			return clamped
+		}
+		return match
+	})
+	if !changed {
+		return text
+	}
+	return out
 }
 
 // AuditPrompt checks a generated prompt against the official full-reference
