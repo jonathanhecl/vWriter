@@ -17,6 +17,8 @@ func TestReferenceSystemWrapperContent(t *testing.T) {
 		"Translate any user-supplied dialogue, lyrics, or visible text into English",
 		"unsupported subject actions, expressions, events, transitions",
 		"Define each <Subject N> exactly once in subject_definitions",
+		"Only the exact lines written inside <d>...</d> are spoken",
+		"keeps lips closed",
 	} {
 		if !strings.Contains(ReferenceSystemWrapper, phrase) {
 			t.Errorf("wrapper missing %q", phrase)
@@ -58,6 +60,8 @@ func TestReferenceContractBoundsCreativeCompletion(t *testing.T) {
 		"Write everything in English: section headings, prose, and all dialogue",
 		"Translate the user's spoken lines into English",
 		"Define each <Subject N> exactly once",
+		"characters speak ONLY the exact lines written inside <d>...</d>",
+		"keeps lips closed for the whole video",
 	} {
 		if !strings.Contains(contract, phrase) {
 			t.Errorf("contract missing %q", phrase)

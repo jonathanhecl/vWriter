@@ -29,6 +29,8 @@ var (
 	speakerIDPattern   = regexp.MustCompile(`\(S\d+(?:\s*,\s*S\d+)*\)`)
 	audioTagPattern    = regexp.MustCompile(`(?i)<Audio\s+\d+>`)
 	cameraIntent       = regexp.MustCompile(`(?i)\b(?:camera|framing|shot|cut|zoom|pan|dolly|tracking|handheld|pov|temporal structure|whole video|entire video)\b`)
+	speechVerbPattern  = regexp.MustCompile(`(?i)\b(?:says?|said|talk(?:s|ed|ing)?|speak(?:s|ing)?|spoke|exclaim(?:s|ed|ing)?|mutter(?:s|ed|ing)?|murmur(?:s|ed|ing)?|whisper(?:s|ed|ing)?|shout(?:s|ed|ing)?|reply(?:s|ied|ing)?|answer(?:s|ed|ing)?)\b`)
+	speechNoLine       = regexp.MustCompile(`(?i)\b(?:nothing|no words|closed|silent|without speaking|does not speak|no dialogue)\b`)
 )
 
 // Audit is the structural and quality report of one generated prompt.
@@ -143,6 +145,23 @@ func DuplicateSubjectDefinitions(promptText string) []string {
 	return dedupe(dupes)
 }
 
+// LooseSpeechLines lists detailed_description lines that describe speech with
+// no <d> block and no speaker ID, which can make the video model invent lines
+// that were not in the script.
+func LooseSpeechLines(promptText string) []string {
+	var lines []string
+	for _, line := range strings.Split(sectionContent(promptText, "detailed_description"), "\n") {
+		if !speechVerbPattern.MatchString(line) {
+			continue
+		}
+		if strings.Contains(line, "<d>") || speakerIDPattern.MatchString(line) || speechNoLine.MatchString(line) {
+			continue
+		}
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	return dedupe(lines)
+}
+
 // AuditPrompt checks a generated prompt against the official full-reference
 // output format and vWriter quality rules.
 func AuditPrompt(prompt string, durationSeconds float64, cameraStructureAllowed bool) *Audit {
@@ -249,6 +268,9 @@ func AuditPrompt(prompt string, durationSeconds float64, cameraStructureAllowed 
 	}
 	if dupes := DuplicateSubjectDefinitions(prompt); len(dupes) > 0 {
 		audit.QualityWarnings = append(audit.QualityWarnings, "duplicate subject definitions: "+strings.Join(dupes, ", "))
+	}
+	if loose := LooseSpeechLines(prompt); len(loose) > 0 {
+		audit.QualityWarnings = append(audit.QualityWarnings, "speech described without a <d> line: "+strings.Join(loose, " | "))
 	}
 	audit.QualityTargetPass = len(audit.QualityWarnings) == 0
 

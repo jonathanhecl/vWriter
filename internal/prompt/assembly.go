@@ -150,7 +150,10 @@ func finalContract(taskText string) string {
 			"Write everything in English: section headings, prose, and all dialogue. Translate the user's spoken "+
 			"lines into English unless the user explicitly asks to keep another language, and never annotate an "+
 			"object, place, action, or name in a second language. Define each <Subject N> exactly once in "+
-			"subject_definitions and never re-define an already-defined subject. "+
+			"subject_definitions and never re-define an already-defined subject. The characters speak ONLY the "+
+			"exact lines written inside <d>...</d> in detailed_description, each preceded by a stable (S1)/(S2) "+
+			"ID in the format <d>[Language] exact words</d>; never invent or add any speech beyond those lines, "+
+			"and any character without a written line keeps lips closed for the whole video. "+
 			"Use the official detail budget for grounded target composition, placement, lighting, atmosphere, camera treatment, "+
 			"supported action progression, and reference application; never pad solely to reach a word count. Return only the complete "+
 			"prompt with all six required sections in the official order and no commentary outside the prompt.",

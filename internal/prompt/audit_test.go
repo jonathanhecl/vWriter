@@ -15,6 +15,18 @@ func TestDuplicateSubjectDefinitions(t *testing.T) {
 	}
 }
 
+func TestLooseSpeechLines(t *testing.T) {
+	prompt := "detailed_description:\n[Shot 1] The man says hello to the clerk.\n[Shot 2] At 00:03.000, the woman (S1) says, <d>[English] Hey!</d>\n"
+	got := LooseSpeechLines(prompt)
+	if len(got) != 1 || !strings.Contains(got[0], "says hello") {
+		t.Fatalf("loose speech lines = %v, want the line without <d>", got)
+	}
+	clean := "detailed_description:\n[Shot 1] The woman (S1) says, <d>[English] Hey!</d> The man says nothing and keeps his lips closed.\n"
+	if got := LooseSpeechLines(clean); len(got) != 0 {
+		t.Fatalf("clean dialogue must not warn, got %v", got)
+	}
+}
+
 // referencePrompt builds a structurally valid full-reference prompt whose
 // detailed_description has exactly wordCount filler words.
 func referencePrompt(wordCount int, includeSoundscape bool) string {
