@@ -122,6 +122,30 @@ func TestUndeclaredMediaMentions(t *testing.T) {
 	}
 }
 
+func TestSanitizePrompt(t *testing.T) {
+	imagesOnly := map[string]bool{"<Picture 1>": true}
+	prompt := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nretention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved - the invented voice track.\n\noverall_soundscape:\n<Video 2> drives the rhythm.\n\nnon_diegetic_music:\nN/A"
+
+	got := SanitizePrompt(prompt, imagesOnly)
+	if strings.Contains(got, "<Audio 1>") {
+		t.Fatalf("invented audio tag must be removed, got %q", got)
+	}
+	if strings.Contains(got, "<Video 2>") {
+		t.Fatalf("invented video tag must be removed, got %q", got)
+	}
+	if !strings.Contains(got, "<Picture 1>") || !strings.Contains(got, "<Subject 1>") {
+		t.Fatalf("declared references must survive, got %q", got)
+	}
+}
+
+func TestSanitizePromptNoChange(t *testing.T) {
+	expected := map[string]bool{"<Picture 1>": true, "<Audio 1>": true}
+	text := "retention_analysis:\n<Picture 1>: fully_preserved.\n<Audio 1>: fully_preserved.\n"
+	if got := SanitizePrompt(text, expected); got != text {
+		t.Fatalf("sanitize must not change a clean prompt, got %q", got)
+	}
+}
+
 func TestFinalTextCleansSpecialTokens(t *testing.T) {
 	if got := FinalText("  prompt body<|end_of_turn|>  "); got != "prompt body" {
 		t.Fatalf("got %q", got)

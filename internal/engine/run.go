@@ -16,13 +16,13 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 ) *Result {
 	audit := enrichAudit(assembled, text)
 	result := &Result{Prompt: text, Audit: audit, Plan: plan}
+	expected := prompt.ReferenceTags(userMessageContent(assembled))
 	if !audit.RepairRequired {
 		return result
 	}
 	e.setPhase(PhaseRepairing, onPhase)
 	result.RepairAttempted = true
 	failures := prompt.AuditFailures(audit)
-	expected := prompt.ReferenceTags(userMessageContent(assembled))
 	repairMessages := prompt.NarrowRepairMessages(assembled, text, failures, expected, assembled.Input.DurationSeconds)
 	repaired, err := client.Chat(ctx, ollama.ChatRequest{
 		Model:    model,
@@ -37,12 +37,22 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 		return result
 	}
 	repairedAudit := enrichAudit(assembled, repairedText)
-	if repairedAudit.RepairRequired {
+	if !repairedAudit.RepairRequired {
+		result.Prompt = repairedText
+		result.Audit = repairedAudit
+		result.RepairApplied = true
 		return result
 	}
-	result.Prompt = repairedText
-	result.Audit = repairedAudit
-	result.RepairApplied = true
+	// The repair pass did not fully resolve the violations. As a deterministic
+	// last-resort guard, strip every line referencing media that was not
+	// uploaded (e.g. an invented <Audio N>) so the deliverable never cites
+	// assets the user did not send.
+	sanitized := prompt.SanitizePrompt(repairedText, expected)
+	if sanitized != repairedText {
+		result.Prompt = sanitized
+		result.Audit = enrichAudit(assembled, sanitized)
+		result.RepairApplied = true
+	}
 	return result
 }
 

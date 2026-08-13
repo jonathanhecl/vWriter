@@ -73,6 +73,40 @@ func UnexpectedAudioTask(taskLabel string, expectedTags map[string]bool) bool {
 	return audioTaskLabel.MatchString(taskLabel)
 }
 
+// SanitizePrompt removes every line that references a numbered media tag not
+// in the expected set — an invented asset such as <Audio 1> when no audio was
+// uploaded. It is a deterministic last-resort guard applied after the repair
+// pass so the deliverable never cites media the user did not send.
+func SanitizePrompt(text string, expected map[string]bool) string {
+	lines := strings.Split(text, "\n")
+	out := make([]string, 0, len(lines))
+	changed := false
+	for _, line := range lines {
+		if lineReferencesUndeclaredTag(line, expected) {
+			changed = true
+			continue
+		}
+		out = append(out, line)
+	}
+	if !changed {
+		return text
+	}
+	return strings.Join(out, "\n")
+}
+
+// lineReferencesUndeclaredTag reports whether a line contains a <Picture N>,
+// <Video N>, or <Audio N> tag that is not in the expected set.
+func lineReferencesUndeclaredTag(line string, expected map[string]bool) bool {
+	for _, groups := range referenceTagPattern.FindAllStringSubmatch(line, -1) {
+		kind := strings.ToUpper(groups[1][:1]) + strings.ToLower(groups[1][1:])
+		tag := fmt.Sprintf("<%s %s>", kind, groups[2])
+		if !expected[tag] {
+			return true
+		}
+	}
+	return false
+}
+
 // ExplicitConstraintViolations checks hard user constraints from the brief
 // against the generated prompt: explicit no-cuts, explicit static camera, and
 // motion-only video roles leaking excluded source traits.
