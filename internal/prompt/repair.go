@@ -13,6 +13,9 @@ var (
 	subjectTagPattern      = regexp.MustCompile(`(?i)<\s*Subject\s+(\d+)\s*>`)
 	malformedMediaPattern  = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio)\s+([^0-9][^<>]*)\s*>`)
 	malformedTagPattern    = regexp.MustCompile(`(?i)<\s*(Picture|Video|Audio|Subject)\s+([^0-9][^<>]*)\s*>`)
+	videoPlaceholder       = regexp.MustCompile(`(?i)<\s*Video\s+N\s*>`)
+	subjectPlaceholder     = regexp.MustCompile(`(?i)<\s*Subject\s+N\s*>`)
+	mediaPlaceholder       = regexp.MustCompile(`(?i)<\s*(?:Picture|Audio)\s+N\s*>`)
 	cameraMovement         = regexp.MustCompile(`(?i)\b(?:zoom(?:s|ed|ing)?|pan(?:s|ned|ning)?|doll(?:y|ies|ied|ying)|tracking shot|camera\s+(?:moves?|pulls?|pushes?|pans?|zooms?|tracks?|dollies?))\b`)
 	noCutsBrief            = regexp.MustCompile(`(?i)\b(?:no cuts?|without cuts?|single continuous shot|one continuous shot)\b`)
 	staticCameraBrief      = regexp.MustCompile(`(?i)\b(?:static|locked(?:-off)?|fixed)\s+camera\b|\bno camera movement\b`)
@@ -121,6 +124,22 @@ func SanitizeMediaPrompt(text string, allowedMedia map[string]bool) string {
 		return text
 	}
 	return strings.Join(out, "\n")
+}
+
+// FixPlaceholderLabels removes generic placeholder labels such as "<Video N>"
+// or "<Subject N>" that the model copies verbatim from the instructions. A
+// <Video N> placeholder is replaced with the actual source video label when
+// one is provided, so continuations keep the correct reference number.
+func FixPlaceholderLabels(text, sourceVideo string) string {
+	text = videoPlaceholder.ReplaceAllStringFunc(text, func(string) string {
+		if sourceVideo != "" {
+			return sourceVideo
+		}
+		return ""
+	})
+	text = subjectPlaceholder.ReplaceAllString(text, "")
+	text = mediaPlaceholder.ReplaceAllString(text, "")
+	return text
 }
 
 // lineReferencesInventedMedia reports whether a line references media that is

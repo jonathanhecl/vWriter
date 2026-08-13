@@ -179,6 +179,23 @@ func TestSubjectTags(t *testing.T) {
 	}
 }
 
+func TestFixPlaceholderLabels(t *testing.T) {
+	text := "The shot continues from <Video N> while <Subject N> follows <Picture N> and <Audio N> plays."
+	got := FixPlaceholderLabels(text, "<Video 1>")
+	if !strings.Contains(got, "<Video 1>") {
+		t.Fatalf("video placeholder must become the source label, got %q", got)
+	}
+	for _, placeholder := range []string{"<Video N>", "<Subject N>", "<Picture N>", "<Audio N>"} {
+		if strings.Contains(got, placeholder) {
+			t.Fatalf("placeholder %q must be removed, got %q", placeholder, got)
+		}
+	}
+	// Without a source label, <Video N> is dropped too.
+	if got := FixPlaceholderLabels("By <Video N> the end.", ""); strings.Contains(got, "<Video N>") {
+		t.Fatalf("video placeholder must be dropped without a source, got %q", got)
+	}
+}
+
 func TestMalformedTags(t *testing.T) {
 	got := MalformedTags("<Video None> is not specified. <Audio N> too. <Picture 1> is fine. <Subject None> here.")
 	for _, want := range []string{"<Video None>", "<Audio N>", "<Subject None>"} {

@@ -22,9 +22,13 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 	// The source video of a continuation is a first-class reference: even
 	// though it is not an uploaded asset, its label must always survive the
 	// cleanup, so parts keep referencing the previous part's video.
-	if source := strings.TrimSpace(assembled.Input.SourceVideoLabel); source != "" {
+	source := strings.TrimSpace(assembled.Input.SourceVideoLabel)
+	if source != "" {
 		expected[source] = true
 	}
+	// Generic placeholders copied from the instructions (<Video N>, <Subject N>)
+	// are corrected before the cleanup: <Video N> becomes the real source label.
+	text = prompt.FixPlaceholderLabels(text, source)
 	sanitized := prompt.SanitizeMediaPrompt(text, expected)
 	if strings.TrimSpace(sanitized) == "" {
 		sanitized = text
