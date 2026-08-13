@@ -375,11 +375,17 @@ func AssembleContinuation(req ContinuationRequest) (*Assembled, error) {
 			"Source video to continue:\n%s — the video generated from the previous part of this story. "+
 			"It is the source being continued; it is not an uploaded asset, so no file is attached. "+
 			"Its exact content is the previous part's prompt below.\n\n"+
+			"Continuity state — carry forward every change that happened by the end of %s:\n"+
+			"Anything a character acquired, removed, or now holds (a hat put on, a helmet taken off, a jacket worn, "+
+			"a hammer picked up and held in hand) and any change to the place (a broken window, a collapsed shelf, "+
+			"moved objects, altered lighting) must already be present in the opening of this part. The opening state "+
+			"below is the exact state %s ends in; describe it fully in the new part's opening so every change is "+
+			"visibly carried over and subjects stay consistent.\n\n"+
 			"How %s ends — this part MUST open with exactly this state:\n%s\n\n"+
 			"Previous part prompt (this is the exact content of %s; keep every subject, scene, style, and continuity element consistent):\n%s\n\n"+
 			"Creative brief for this part:\n%s\n\n%s",
 		req.DurationSeconds, req.AspectRatio, continuationManifestText(declared),
-		source, source, ending, source, previous, brief, contract,
+		source, source, source, source, ending, source, previous, brief, contract,
 	)
 	messages, guide, base, err := guideMessages(systemPrompt)
 	if err != nil {
