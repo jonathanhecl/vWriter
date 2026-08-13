@@ -18,6 +18,7 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/jonathanhecl/vWriter/internal/engine"
+	"github.com/jonathanhecl/vWriter/internal/version"
 )
 
 // layout renders the whole window: header, split panels, footer, overlays.
@@ -256,7 +257,9 @@ func (a *App) layoutBrand(gtx layout.Context) layout.Dimensions {
 						l.Color = colorText
 						return l.Layout(gtx)
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return bodyText(gtx, a.theme, "VIDEO PROMPT STUDIO") }),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return bodyText(gtx, a.theme, fmt.Sprintf("VIDEO PROMPT STUDIO · %s", version.String()))
+					}),
 				)
 			})
 		}),
