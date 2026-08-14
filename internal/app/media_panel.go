@@ -7,9 +7,11 @@ import (
 	_ "image/png"
 	"os"
 
+	"gioui.org/gesture"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -42,6 +44,8 @@ func (a *App) widgetsFor(assetID string) *assetWidgets {
 	return widgets
 }
 
+// mediaScrollLimit returns the maximum index the media row can start at
+// while still showing a full viewport of items.
 func (a *App) mediaScrollLimit(totalItems int) int {
 	visibleItems := a.mediaList.Position.Count
 	if visibleItems < 1 {
@@ -50,34 +54,12 @@ func (a *App) mediaScrollLimit(totalItems int) int {
 	return max(totalItems-visibleItems, 0)
 }
 
-func (a *App) filteredMediaItemCount() int {
-	filter := a.mediaFilter
-	if filter == "" || filter == "all" {
-		return len(a.engine.Store.List(a.session))
-	}
-
-	count := 0
-	for _, asset := range a.engine.Store.List(a.session) {
-		if (filter == "image" && asset.Type == media.Image) ||
-			(filter == "video" && asset.Type == media.Video) || (filter == "audio" && asset.Type == media.Audio) {
-			count++
-		}
-	}
-	return count
-}
-
-func (a *App) moveMediaScroll(delta, totalItems int) {
-	limit := a.mediaScrollLimit(totalItems)
-	first := a.mediaList.Position.First + delta
-	if first < 0 {
-		first = 0
-	} else if first > limit {
-		first = limit
-	}
-	if first != a.mediaList.Position.First {
-		a.mediaList.Position.First = first
-		a.window.Invalidate()
-	}
+// scrollMediaBy scrolls the media row by delta items using Gio's list API,
+// which keeps Position.First and Position.Offset consistent so the row can
+// always scroll back to the first item.
+func (a *App) scrollMediaBy(delta float32) {
+	a.mediaList.ScrollBy(delta)
+	a.window.Invalidate()
 }
 
 // layoutMediaSection renders the media header and the asset cards.
@@ -109,8 +91,10 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	totalItems := len(filteredAssets) + 1
-	if a.mediaList.Position.First > a.mediaScrollLimit(totalItems) {
-		a.mediaList.Position.First = a.mediaScrollLimit(totalItems)
+	if a.mediaList.Position.First >= totalItems {
+		a.mediaList.Position.First = max(totalItems-1, 0)
+		a.mediaList.Position.Offset = 0
+		a.mediaList.Position.BeforeEnd = true
 	}
 
 	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
@@ -198,40 +182,9 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 				hGtx.Constraints.Min.Y = cardHeight
 				hGtx.Constraints.Max.Y = cardHeight
 
-				for {
-					event, ok := gtx.Event(pointer.Filter{
-						Target: &a.mediaList,
-						Kinds:  pointer.Scroll | pointer.Press | pointer.Drag,
-					})
-					if !ok {
-						break
-					}
-					if ev, ok := event.(pointer.Event); ok {
-						switch ev.Kind {
-						case pointer.Scroll:
-							if ev.Scroll.Y > 0 || ev.Scroll.X > 0 {
-								a.moveMediaScroll(1, totalItems)
-							} else if ev.Scroll.Y < 0 || ev.Scroll.X < 0 {
-								a.moveMediaScroll(-1, totalItems)
-							}
-						case pointer.Press:
-							a.dragStartX = ev.Position.X
-						case pointer.Drag:
-							dx := ev.Position.X - a.dragStartX
-							if dx > 35 && a.mediaList.Position.First > 0 {
-								a.moveMediaScroll(-1, totalItems)
-								a.dragStartX = ev.Position.X
-							} else if dx < -35 && a.mediaList.Position.First < a.mediaScrollLimit(totalItems) {
-								a.moveMediaScroll(1, totalItems)
-								a.dragStartX = ev.Position.X
-							}
-						}
-					}
-				}
-
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.mediaList.Layout(hGtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
+						dims := a.mediaList.Layout(hGtx, totalItems, func(gtx layout.Context, index int) layout.Dimensions {
 							if index < len(filteredAssets) {
 								asset := filteredAssets[index]
 								return layout.Inset{Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -240,6 +193,24 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 							}
 							return a.layoutAddMediaCard(gtx)
 						})
+
+						// Horizontal drag scrolls the row; the gesture grabs the
+						// pointer past touch slop so card buttons still work.
+						defer clip.Rect(image.Rectangle{Max: dims.Size}).Push(gtx.Ops).Pop()
+						a.mediaDrag.Add(gtx.Ops)
+						if ev, ok := a.mediaDrag.Update(gtx.Metric, gtx.Source, gesture.Horizontal); ok {
+							switch ev.Kind {
+							case pointer.Press:
+								a.dragStartX = ev.Position.X
+							case pointer.Drag:
+								dx := ev.Position.X - a.dragStartX
+								if dx != 0 {
+									a.scrollMediaBy(-dx / float32(gtx.Dp(155)))
+									a.dragStartX = ev.Position.X
+								}
+							}
+						}
+						return dims
 					}),
 					// Interactive Horizontal Scrollbar Track & Thumb
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -276,9 +247,9 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 								}
 								if ev, ok := event.(pointer.Event); ok {
 									if ev.Position.X < float32(thumbLeft) {
-										a.moveMediaScroll(-1, totalItems)
+										a.scrollMediaBy(-1)
 									} else if ev.Position.X > float32(thumbLeft+thumbWidth) {
-										a.moveMediaScroll(1, totalItems)
+										a.scrollMediaBy(1)
 									}
 								}
 							}
