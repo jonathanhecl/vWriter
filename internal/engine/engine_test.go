@@ -451,6 +451,50 @@ func TestRegeneratePart2KeepsSourceVideoReference(t *testing.T) {
 	}
 }
 
+func TestGenerateContinuationEnforcesMissingReference(t *testing.T) {
+	// The model omits the continuation declaration and the source video
+	// entirely; the engine must add both deterministically without touching
+	// the rest of the response.
+	draft := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nsummary:\n[reference generation] The man follows the clue.\n\nretention_analysis:\n<Subject 1>: fully_preserved.\n\ndetailed_description:\n[Shot 1] " + strings.Repeat("visible ", 400) + "\n\noverall_soundscape:\nN/A\n\nnon_diegetic_music:\nN/A"
+	fake := &fakeOllama{t: t, responses: []string{
+		buildPrompt(validPrompt, 400),
+		draft,
+	}}
+	eng, session := testRig(t, fake)
+
+	part1, err := eng.Generate(generateParams(session))
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	part2, err := eng.GenerateContinuation(ContinuationParams{
+		SessionID:        session,
+		Model:            "vision-model:latest",
+		PartBrief:        "The hero follows the clue into the warehouse.",
+		DurationSeconds:  10,
+		AspectRatio:      "16:9",
+		PreviousPrompt:   part1.Prompt,
+		PreviousEnding:   prompt.ExtractEndingState(part1.Prompt),
+		SourceVideoLabel: "<Video 1>",
+		ContextProfile:   "auto",
+		KeepModelLoaded:  true,
+	})
+	if err != nil {
+		t.Fatalf("GenerateContinuation: %v", err)
+	}
+	if !strings.Contains(part2.Prompt, "<Video 1>") {
+		t.Fatalf("source video must be cited in the output, got %q", part2.Prompt)
+	}
+	if !strings.Contains(part2.Prompt, "video continuation") {
+		t.Fatalf("output must declare the continuation, got %q", part2.Prompt)
+	}
+	if !strings.Contains(part2.Prompt, "The man follows the clue.") {
+		t.Fatalf("existing summary content must be preserved, got %q", part2.Prompt)
+	}
+	if !part2.RepairApplied {
+		t.Error("deterministic continuation enforcement must mark the result as repaired")
+	}
+}
+
 func TestRefineClampsTimestamps(t *testing.T) {
 	fake := &fakeOllama{t: t, responses: []string{
 		"summary:\n[reference generation] A shot.\n\ndetailed_description:\n[Shot 1] A quiet room.\n[Shot 2] At 00:12.000, the camera cuts to the door.\n\noverall_soundscape:\nN/A\n\nnon_diegetic_music:\nN/A",

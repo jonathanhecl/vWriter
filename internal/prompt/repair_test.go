@@ -169,6 +169,36 @@ func TestSanitizeMediaPromptKeepsLongProse(t *testing.T) {
 	}
 }
 
+func TestEnforceContinuationContract(t *testing.T) {
+	// The model omitted both the continuation declaration and the source video.
+	text := "subject_definitions:\n<Subject 1> comes from <Picture 1>.\n\nsummary:\n[reference generation] The man follows the clue.\n\nretention_analysis:\n<Subject 1>: fully_preserved.\n\ndetailed_description:\n[Shot 1] The man walks through the warehouse door.\n\noverall_soundscape:\nN/A\n\nnon_diegetic_music:\nN/A"
+	got := EnforceContinuationContract(text, "<Video 2>")
+	if !strings.Contains(got, "<Video 2>") {
+		t.Fatalf("source video must be cited, got %q", got)
+	}
+	if !strings.Contains(got, "[video continuation + reference generation]") {
+		t.Fatalf("continuation must be named in the task label, got %q", got)
+	}
+	if !strings.Contains(got, "The man walks through the warehouse door") {
+		t.Fatalf("existing content must be preserved, got %q", got)
+	}
+}
+
+func TestEnforceContinuationContractIdempotent(t *testing.T) {
+	text := "subject_definitions:\n<Video 2> is the source video being continued.\n\nsummary:\n[video continuation] The man follows the clue.\n"
+	if got := EnforceContinuationContract(text, "<Video 2>"); got != text {
+		t.Fatalf("clean continuation must be left unchanged, got %q", got)
+	}
+}
+
+func TestEnforceContinuationContractAddsLabelWhenMissing(t *testing.T) {
+	text := "summary:\nThe man follows the clue.\n"
+	got := EnforceContinuationContract(text, "<Video 2>")
+	if !strings.Contains(got, "[video continuation] The man follows the clue.") {
+		t.Fatalf("missing task label must be added, got %q", got)
+	}
+}
+
 func TestSubjectTags(t *testing.T) {
 	got := SubjectTags("subject_definitions:\n<Subject 1> comes from <Picture 1>.\n<Subject 2> follows.\n")
 	if len(got) != 2 || !got["<Subject 1>"] || !got["<Subject 2>"] {

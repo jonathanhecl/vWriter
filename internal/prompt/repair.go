@@ -142,6 +142,67 @@ func FixPlaceholderLabels(text, sourceVideo string) string {
 	return text
 }
 
+var (
+	summaryHeadingPattern     = regexp.MustCompile(`(?im)^\s*summary\s*:\s*`)
+	subjectDefsHeadingPattern = regexp.MustCompile(`(?im)^\s*subject_definitions\s*:\s*`)
+	retentionHeadingPattern   = regexp.MustCompile(`(?im)^\s*retention_analysis\s*:\s*`)
+	summaryTaskLabelPattern   = regexp.MustCompile(`^\s*\[([^\]]+)\]`)
+)
+
+// EnforceContinuationContract makes a continuation's output name the
+// continuation and cite its source video when the model omitted either. It
+// only adds the missing required elements — a subject_definitions line for the
+// source video and a "[video continuation]" summary prefix — and preserves
+// every other line verbatim, so the model's real response stays intact.
+func EnforceContinuationContract(text, sourceVideo string) string {
+	sourceVideo = strings.TrimSpace(sourceVideo)
+	if sourceVideo == "" {
+		return text
+	}
+	out := text
+	if !regexp.MustCompile(`(?i)` + regexp.QuoteMeta(sourceVideo)).MatchString(out) {
+		line := fmt.Sprintf("%s is the video generated from the previous part of this story. Follow its style, color palette, character appearance, clothing, and scene, but generate NEW content. Never extend, reuse, or re-render its frames or shots.", sourceVideo)
+		out = insertAfterHeading(out, line, subjectDefsHeadingPattern, retentionHeadingPattern)
+	}
+	return ensureContinuationTaskLabel(out)
+}
+
+// insertAfterHeading inserts line on its own line right after the first
+// heading matched by primary (falling back to fallback), declaring the
+// reference inside the section the guide assigns to it.
+func insertAfterHeading(text, line string, primary, fallback *regexp.Regexp) string {
+	pattern := primary
+	if pattern.FindStringIndex(text) == nil {
+		pattern = fallback
+	}
+	loc := pattern.FindStringIndex(text)
+	if loc == nil {
+		return text
+	}
+	return text[:loc[1]] + "\n" + line + text[loc[1]:]
+}
+
+// ensureContinuationTaskLabel adds "[video continuation]" to the summary's
+// task-type prefix when it is missing, following the guide's combination rule
+// ("video continuation + ...") when another type was already declared.
+func ensureContinuationTaskLabel(text string) string {
+	loc := summaryHeadingPattern.FindStringIndex(text)
+	if loc == nil {
+		return text
+	}
+	rest := text[loc[1]:]
+	m := summaryTaskLabelPattern.FindStringSubmatchIndex(rest)
+	if m == nil {
+		return text[:loc[1]] + "\n[video continuation] " + rest
+	}
+	label := strings.TrimSpace(rest[m[2]:m[3]])
+	if strings.Contains(strings.ToLower(label), "continuation") {
+		return text
+	}
+	replacement := "[video continuation + " + label + "]"
+	return text[:loc[1]] + rest[:m[0]] + replacement + rest[m[1]:]
+}
+
 // lineReferencesInventedMedia reports whether a line references media that is
 // not in the allowed set. A line is only "invented" when it references media
 // and none of those references are allowed, so a line that also cites an

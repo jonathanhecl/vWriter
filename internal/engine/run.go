@@ -11,9 +11,10 @@ import (
 
 // runAuditAndRepair audits the generated text and applies only a minimal,
 // deterministic cleanup: lines that cite media the user did not provide are
-// dropped when they are short (retention/definition lines). No model-based
-// repair is run — it destroyed valid content — so the deliverable is always a
-// real response, never a stripped skeleton.
+// dropped when they are short (retention/definition lines), and a continuation
+// is made to name itself and cite its source video when the model omitted
+// those. No model-based repair is run — it destroyed valid content — so the
+// deliverable is always a real response, never a stripped skeleton.
 func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, model string,
 	assembled *prompt.Assembled, plan *prompt.Plan, text string,
 	onPhase func(string), onProgress func(int),
@@ -33,6 +34,10 @@ func (e *Engine) runAuditAndRepair(ctx context.Context, client *ollama.Client, m
 	if strings.TrimSpace(sanitized) == "" {
 		sanitized = text
 	}
+	// A continuation must name itself and cite the previous part's video even
+	// when the model omitted them; this deterministic step only adds the
+	// missing required reference, never rewriting existing content.
+	sanitized = prompt.EnforceContinuationContract(sanitized, source)
 	// Shot timestamps must never exceed the configured duration of the part.
 	sanitized = prompt.ClampTimestamps(sanitized, assembled.Input.DurationSeconds)
 	result := &Result{Prompt: sanitized, Audit: enrichAudit(assembled, sanitized), Plan: plan}
