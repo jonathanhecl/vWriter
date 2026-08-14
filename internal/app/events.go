@@ -32,12 +32,10 @@ func (a *App) handleEvents(gtx layout.Context) {
 		a.mediaFilter = "audio"
 	}
 	if a.scrollLeftBtn.Clicked(gtx) && a.mediaList.Position.First > 0 {
-		a.mediaList.Position.First--
-		a.window.Invalidate()
+		a.moveMediaScroll(-1, a.filteredMediaItemCount()+1)
 	}
 	if a.scrollRightBtn.Clicked(gtx) {
-		a.mediaList.Position.First++
-		a.window.Invalidate()
+		a.moveMediaScroll(1, a.filteredMediaItemCount()+1)
 	}
 	if a.clearMediaBtn.Clicked(gtx) {
 		a.engine.Store.Clear(a.session)

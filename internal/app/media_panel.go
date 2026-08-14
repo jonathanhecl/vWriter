@@ -1,4 +1,4 @@
-﻿package app
+package app
 
 import (
 	"fmt"
@@ -42,6 +42,44 @@ func (a *App) widgetsFor(assetID string) *assetWidgets {
 	return widgets
 }
 
+func (a *App) mediaScrollLimit(totalItems int) int {
+	visibleItems := a.mediaList.Position.Count
+	if visibleItems < 1 {
+		visibleItems = 3
+	}
+	return max(totalItems-visibleItems, 0)
+}
+
+func (a *App) filteredMediaItemCount() int {
+	filter := a.mediaFilter
+	if filter == "" || filter == "all" {
+		return len(a.engine.Store.List(a.session))
+	}
+
+	count := 0
+	for _, asset := range a.engine.Store.List(a.session) {
+		if (filter == "image" && asset.Type == media.Image) ||
+			(filter == "video" && asset.Type == media.Video) || (filter == "audio" && asset.Type == media.Audio) {
+			count++
+		}
+	}
+	return count
+}
+
+func (a *App) moveMediaScroll(delta, totalItems int) {
+	limit := a.mediaScrollLimit(totalItems)
+	first := a.mediaList.Position.First + delta
+	if first < 0 {
+		first = 0
+	} else if first > limit {
+		first = limit
+	}
+	if first != a.mediaList.Position.First {
+		a.mediaList.Position.First = first
+		a.window.Invalidate()
+	}
+}
+
 // layoutMediaSection renders the media header and the asset cards.
 func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 	assets := a.engine.Store.List(a.session)
@@ -61,6 +99,18 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 	filter := a.mediaFilter
 	if filter == "" {
 		filter = "all"
+	}
+
+	var filteredAssets []*media.Asset
+	for _, asset := range assets {
+		if filter == "all" || (filter == "image" && asset.Type == media.Image) ||
+			(filter == "video" && asset.Type == media.Video) || (filter == "audio" && asset.Type == media.Audio) {
+			filteredAssets = append(filteredAssets, asset)
+		}
+	}
+	totalItems := len(filteredAssets) + 1
+	if a.mediaList.Position.First > a.mediaScrollLimit(totalItems) {
+		a.mediaList.Position.First = a.mediaScrollLimit(totalItems)
 	}
 
 	return card(gtx, 14, func(gtx layout.Context) layout.Dimensions {
@@ -131,7 +181,7 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 										return a.iconButton(gtx, &a.scrollLeftBtn, "‹", a.mediaList.Position.First > 0)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.iconButton(gtx, &a.scrollRightBtn, "›", true)
+										return a.iconButton(gtx, &a.scrollRightBtn, "›", a.mediaList.Position.First < a.mediaScrollLimit(totalItems))
 									}),
 								)
 							})
@@ -141,27 +191,6 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 			}),
 			// Asset Grid / Horizontal Card Row with Interactive Scrollbar
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				var filteredAssets []*media.Asset
-				for _, asset := range assets {
-					switch filter {
-					case "image":
-						if asset.Type == media.Image {
-							filteredAssets = append(filteredAssets, asset)
-						}
-					case "video":
-						if asset.Type == media.Video {
-							filteredAssets = append(filteredAssets, asset)
-						}
-					case "audio":
-						if asset.Type == media.Audio {
-							filteredAssets = append(filteredAssets, asset)
-						}
-					default:
-						filteredAssets = append(filteredAssets, asset)
-					}
-				}
-
-				totalItems := len(filteredAssets) + 1
 				a.mediaList.Axis = layout.Horizontal
 
 				hGtx := gtx
@@ -180,25 +209,21 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 					if ev, ok := event.(pointer.Event); ok {
 						switch ev.Kind {
 						case pointer.Scroll:
-							if (ev.Scroll.Y > 0 || ev.Scroll.X > 0) && a.mediaList.Position.First < totalItems-1 {
-								a.mediaList.Position.First++
-								a.window.Invalidate()
-							} else if (ev.Scroll.Y < 0 || ev.Scroll.X < 0) && a.mediaList.Position.First > 0 {
-								a.mediaList.Position.First--
-								a.window.Invalidate()
+							if ev.Scroll.Y > 0 || ev.Scroll.X > 0 {
+								a.moveMediaScroll(1, totalItems)
+							} else if ev.Scroll.Y < 0 || ev.Scroll.X < 0 {
+								a.moveMediaScroll(-1, totalItems)
 							}
 						case pointer.Press:
 							a.dragStartX = ev.Position.X
 						case pointer.Drag:
 							dx := ev.Position.X - a.dragStartX
 							if dx > 35 && a.mediaList.Position.First > 0 {
-								a.mediaList.Position.First--
+								a.moveMediaScroll(-1, totalItems)
 								a.dragStartX = ev.Position.X
-								a.window.Invalidate()
-							} else if dx < -35 && a.mediaList.Position.First < totalItems-1 {
-								a.mediaList.Position.First++
+							} else if dx < -35 && a.mediaList.Position.First < a.mediaScrollLimit(totalItems) {
+								a.moveMediaScroll(1, totalItems)
 								a.dragStartX = ev.Position.X
-								a.window.Invalidate()
 							}
 						}
 					}
@@ -250,12 +275,10 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 									break
 								}
 								if ev, ok := event.(pointer.Event); ok {
-									if ev.Position.X < float32(thumbLeft) && a.mediaList.Position.First > 0 {
-										a.mediaList.Position.First--
-										a.window.Invalidate()
-									} else if ev.Position.X > float32(thumbLeft+thumbWidth) && a.mediaList.Position.First < totalItems-1 {
-										a.mediaList.Position.First++
-										a.window.Invalidate()
+									if ev.Position.X < float32(thumbLeft) {
+										a.moveMediaScroll(-1, totalItems)
+									} else if ev.Position.X > float32(thumbLeft+thumbWidth) {
+										a.moveMediaScroll(1, totalItems)
 									}
 								}
 							}
