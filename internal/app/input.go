@@ -133,13 +133,15 @@ func (a *App) layoutPresetsSection(gtx layout.Context) layout.Dimensions {
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if a.presetIndex >= 0 && a.presetIndex < len(presets) {
-							assetCount := len(presets[a.presetIndex].Assets)
-							l := material.Label(a.theme, 11, fmt.Sprintf("%d assets saved", assetCount))
-							l.Color = colorTextDim
-							return l.Layout(gtx)
-						}
-						return layout.Dimensions{}
+						return layout.Inset{Left: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							if a.presetIndex >= 0 && a.presetIndex < len(presets) {
+								assetCount := len(presets[a.presetIndex].Assets)
+								l := material.Label(a.theme, 11, fmt.Sprintf("%d assets saved", assetCount))
+								l.Color = colorTextDim
+								return l.Layout(gtx)
+							}
+							return layout.Dimensions{}
+						})
 					}),
 				)
 			}),
