@@ -31,7 +31,7 @@ func (a *App) handleEvents(gtx layout.Context) {
 	if a.filterAudBtn.Clicked(gtx) {
 		a.mediaFilter = "audio"
 	}
-	if a.scrollLeftBtn.Clicked(gtx) && a.mediaList.Position.First > 0 {
+	if a.scrollLeftBtn.Clicked(gtx) {
 		a.scrollMediaBy(-1)
 	}
 	if a.scrollRightBtn.Clicked(gtx) {

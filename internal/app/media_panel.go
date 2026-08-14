@@ -54,12 +54,28 @@ func (a *App) mediaScrollLimit(totalItems int) int {
 	return max(totalItems-visibleItems, 0)
 }
 
-// scrollMediaBy scrolls the media row by delta items using Gio's list API,
-// which keeps Position.First and Position.Offset consistent so the row can
-// always scroll back to the first item.
-func (a *App) scrollMediaBy(delta float32) {
-	a.mediaList.ScrollBy(delta)
-	a.window.Invalidate()
+// scrollMediaBy scrolls the media row by delta items, pinning the target item
+// to the left edge (Offset 0). This keeps the row item-aligned so the first
+// card is always reachable: a leftover pixel offset from wheel or drag would
+// otherwise make the layout re-advance First and clip the start.
+func (a *App) scrollMediaBy(delta int) {
+	if a.mediaTotalItems < 1 {
+		a.mediaTotalItems = 1
+	}
+	first := a.mediaList.Position.First + delta
+	if first < 0 {
+		first = 0
+	} else if first >= a.mediaTotalItems {
+		first = a.mediaTotalItems - 1
+	}
+	if first != a.mediaList.Position.First || a.mediaList.Position.Offset != 0 {
+		a.mediaList.Position.First = first
+		a.mediaList.Position.Offset = 0
+		a.mediaList.Position.BeforeEnd = true
+		if a.window != nil {
+			a.window.Invalidate()
+		}
+	}
 }
 
 // layoutMediaSection renders the media header and the asset cards.
@@ -91,6 +107,7 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	totalItems := len(filteredAssets) + 1
+	a.mediaTotalItems = totalItems
 	if a.mediaList.Position.First >= totalItems {
 		a.mediaList.Position.First = max(totalItems-1, 0)
 		a.mediaList.Position.Offset = 0
@@ -162,10 +179,12 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.iconButton(gtx, &a.scrollLeftBtn, "‹", a.mediaList.Position.First > 0)
+										return a.iconButton(gtx, &a.scrollLeftBtn, "‹",
+											a.mediaList.Position.First > 0 || a.mediaList.Position.Offset != 0)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.iconButton(gtx, &a.scrollRightBtn, "›", a.mediaList.Position.First < a.mediaScrollLimit(totalItems))
+										return a.iconButton(gtx, &a.scrollRightBtn, "›",
+											a.mediaList.Position.First < a.mediaScrollLimit(totalItems))
 									}),
 								)
 							})
@@ -202,12 +221,27 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 							switch ev.Kind {
 							case pointer.Press:
 								a.dragStartX = ev.Position.X
+								a.dragAccum = 0
 							case pointer.Drag:
-								dx := ev.Position.X - a.dragStartX
-								if dx != 0 {
-									a.scrollMediaBy(-dx / float32(gtx.Dp(155)))
-									a.dragStartX = ev.Position.X
+								a.dragAccum += ev.Position.X - a.dragStartX
+								a.dragStartX = ev.Position.X
+								step := float32(gtx.Dp(155))
+								for a.dragAccum <= -step {
+									a.scrollMediaBy(1)
+									a.dragAccum += step
 								}
+								for a.dragAccum >= step {
+									a.scrollMediaBy(-1)
+									a.dragAccum -= step
+								}
+							case pointer.Release, pointer.Cancel:
+								step := float32(gtx.Dp(155))
+								if a.dragAccum <= -step/2 {
+									a.scrollMediaBy(1)
+								} else if a.dragAccum >= step/2 {
+									a.scrollMediaBy(-1)
+								}
+								a.dragAccum = 0
 							}
 						}
 						return dims

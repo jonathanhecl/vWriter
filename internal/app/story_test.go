@@ -128,3 +128,35 @@ func TestSelectPartSyncsEditor(t *testing.T) {
 		t.Fatalf("refine editor must pre-fill with the part refine, got %q", a.refineEditor.Text())
 	}
 }
+
+func TestScrollMediaByReturnsToFirstItem(t *testing.T) {
+	a := testApp(t)
+	a.mediaTotalItems = 4
+
+	a.scrollMediaBy(1)
+	a.scrollMediaBy(1)
+	if a.mediaList.Position.First != 2 || a.mediaList.Position.Offset != 0 {
+		t.Fatalf("after scrolling right: First=%d Offset=%d", a.mediaList.Position.First, a.mediaList.Position.Offset)
+	}
+
+	a.scrollMediaBy(-1)
+	a.scrollMediaBy(-1)
+	if a.mediaList.Position.First != 0 || a.mediaList.Position.Offset != 0 {
+		t.Fatalf("must reach the first item: First=%d Offset=%d", a.mediaList.Position.First, a.mediaList.Position.Offset)
+	}
+
+	// A residual wheel/drag offset at the start must be snapped so the first
+	// card is never left clipped and unreachable.
+	a.mediaList.Position.Offset = 30
+	a.scrollMediaBy(-1)
+	if a.mediaList.Position.First != 0 || a.mediaList.Position.Offset != 0 {
+		t.Fatalf("residual offset must be snapped at the start: First=%d Offset=%d", a.mediaList.Position.First, a.mediaList.Position.Offset)
+	}
+
+	// The row must never be scrolled past the last item.
+	a.mediaList.Position.First = 3
+	a.scrollMediaBy(1)
+	if a.mediaList.Position.First != 3 {
+		t.Fatalf("must clamp at the last item: First=%d", a.mediaList.Position.First)
+	}
+}

@@ -113,6 +113,8 @@ type App struct {
 	dividerDrag        gesture.Drag
 	mediaFilter        string // "all", "image", "video", "audio"
 	dragStartX         float32
+	dragAccum          float32 // accumulated drag pixels since the last item snap
+	mediaTotalItems    int     // item count of the media row from the last layout
 	// Divider drag state and last window width (UI goroutine only).
 	dividerPressX     float32
 	dividerStartWidth int
