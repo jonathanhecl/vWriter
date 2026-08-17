@@ -7,7 +7,6 @@ import (
 	_ "image/png"
 	"os"
 
-	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -22,19 +21,12 @@ import (
 	"github.com/jonathanhecl/vWriter/internal/media"
 )
 
-// mediaDragEngageDp is the horizontal travel a press must exceed before the
-// row starts dragging. It is far larger than the platform touch slop so that
-// ordinary clicks (which always carry a few pixels of jitter) reach the card
-// buttons instead of being stolen by the scroll gesture.
-const mediaDragEngageDp = 24
-
 // assetWidgets holds the per-asset widget state.
 type assetWidgets struct {
-	preview  widget.Clickable
-	remove   widget.Clickable
-	up       widget.Clickable
-	down     widget.Clickable
-	analysis widget.Clickable
+	remove    widget.Clickable
+	moveLeft  widget.Clickable
+	moveRight widget.Clickable
+	settings  widget.Clickable
 }
 
 func (a *App) widgetsFor(assetID string) *assetWidgets {
@@ -312,25 +304,6 @@ func (a *App) filterPill(gtx layout.Context, btn *widget.Clickable, label string
 }
 
 func (a *App) layoutAddMediaCard(gtx layout.Context) layout.Dimensions {
-	if !a.dbgCardLaidOut {
-		a.dbgCardLaidOut = true
-		dbgLog("layoutAddMediaCard: laid out")
-	}
-	event.Op(gtx.Ops, &a.dbgCardProbe)
-	for {
-		p, ok := gtx.Event(pointer.Filter{
-			Target: &a.dbgCardProbe,
-			Kinds:  pointer.Press | pointer.Release | pointer.Enter | pointer.Leave | pointer.Cancel | pointer.Drag,
-		})
-		if !ok {
-			break
-		}
-		ev, ok := p.(pointer.Event)
-		if !ok {
-			continue
-		}
-		dbgLog(fmt.Sprintf("cardProbe kind=%v pos=%v", ev.Kind, ev.Position))
-	}
 	cardWidth := gtx.Dp(145)
 	cardHeight := gtx.Dp(135)
 	gtx.Constraints.Min = image.Pt(cardWidth, cardHeight)
@@ -370,13 +343,41 @@ func (a *App) layoutAddMediaCard(gtx layout.Context) layout.Dimensions {
 // layoutAssetCard renders one asset in card mode.
 func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, total int) layout.Dimensions {
 	widgets := a.widgetsFor(asset.ID)
-	if widgets.preview.Clicked(gtx) {
-		// Open role/label modal.
-		a.assetModal = newAssetModal(asset, a.engine.Store.List(a.session))
+
+	// Locate the asset in the full session order so the move buttons can
+	// reorder it relative to its neighbours.
+	assets := a.engine.Store.List(a.session)
+	orderIndex := -1
+	for i, candidate := range assets {
+		if candidate.ID == asset.ID {
+			orderIndex = i
+			break
+		}
+	}
+	canMoveLeft := orderIndex > 0
+	canMoveRight := orderIndex >= 0 && orderIndex < len(assets)-1
+
+	if widgets.settings.Clicked(gtx) {
+		a.assetModal = newAssetModal(asset, assets)
+		a.window.Invalidate()
+		return layout.Dimensions{}
 	}
 	if widgets.remove.Clicked(gtx) {
 		_ = a.engine.Store.Remove(a.session, asset.ID)
 		a.autoSaveCurrentPreset()
+		a.window.Invalidate()
+		return layout.Dimensions{}
+	}
+	if widgets.moveLeft.Clicked(gtx) && canMoveLeft {
+		a.moveAsset(orderIndex, orderIndex-1)
+		a.autoSaveCurrentPreset()
+		a.window.Invalidate()
+		return layout.Dimensions{}
+	}
+	if widgets.moveRight.Clicked(gtx) && canMoveRight {
+		a.moveAsset(orderIndex, orderIndex+1)
+		a.autoSaveCurrentPreset()
+		a.window.Invalidate()
 		return layout.Dimensions{}
 	}
 
@@ -391,39 +392,44 @@ func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, tot
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				// Thumbnail top
+				// Thumbnail top, with the remove button overlaid top-right.
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return widgets.preview.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Stack{}.Layout(gtx,
-							layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-								return a.assetThumbCard(gtx, asset, cardWidth, gtx.Dp(85))
-							}),
-							layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-								if asset.Type == media.Video && asset.Duration > 0 {
-									return layout.Inset{Top: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-										return layout.NE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-											return layout.Background{}.Layout(gtx,
-												func(gtx layout.Context) layout.Dimensions {
-													fill(gtx, 4, colorBackground)
-													return layout.Dimensions{Size: gtx.Constraints.Min}
-												},
-												func(gtx layout.Context) layout.Dimensions {
-													return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-														mins := int(asset.Duration) / 60
-														secs := int(asset.Duration) % 60
-														l := material.Label(a.theme, 10, fmt.Sprintf("%02d:%02d", mins, secs))
-														l.Color = colorText
-														return l.Layout(gtx)
-													})
-												},
-											)
-										})
+					return layout.Stack{}.Layout(gtx,
+						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+							return a.assetThumbCard(gtx, asset, cardWidth, gtx.Dp(85))
+						}),
+						layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.NE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return a.iconButton(gtx, &widgets.remove, "×", true)
+								})
+							})
+						}),
+						layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+							if asset.Type == media.Video && asset.Duration > 0 {
+								return layout.Inset{Top: 4, Left: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										return layout.Background{}.Layout(gtx,
+											func(gtx layout.Context) layout.Dimensions {
+												fill(gtx, 4, colorBackground)
+												return layout.Dimensions{Size: gtx.Constraints.Min}
+											},
+											func(gtx layout.Context) layout.Dimensions {
+												return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+													mins := int(asset.Duration) / 60
+													secs := int(asset.Duration) % 60
+													l := material.Label(a.theme, 10, fmt.Sprintf("%02d:%02d", mins, secs))
+													l.Color = colorText
+													return l.Layout(gtx)
+												})
+											},
+										)
 									})
-								}
-								return layout.Dimensions{}
-							}),
-						)
-					})
+								})
+							}
+							return layout.Dimensions{}
+						}),
+					)
 				}),
 				// Bottom Footer Bar
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -472,7 +478,13 @@ func (a *App) layoutAssetCard(gtx layout.Context, asset *media.Asset, index, tot
 								)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.iconButton(gtx, &widgets.remove, "✕", true)
+								return a.iconButton(gtx, &widgets.moveLeft, "←", canMoveLeft)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return a.iconButton(gtx, &widgets.moveRight, "→", canMoveRight)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return a.iconButton(gtx, &widgets.settings, "⚙", true)
 							}),
 						)
 					})
@@ -553,18 +565,37 @@ func assetMeta(asset *media.Asset) string {
 	return meta
 }
 
-// iconButton renders a tiny square button; disabled ones are dimmed.
+// iconButton renders a small bordered square button with a fixed minimum hit
+// target. Disabled buttons drop the click handler and are dimmed.
 func (a *App) iconButton(gtx layout.Context, btn *widget.Clickable, label string, enabled bool) layout.Dimensions {
-	if !enabled {
-		l := material.Label(a.theme, 12, label)
-		l.Color = colorBorder
-		return layout.UniformInset(4).Layout(gtx, l.Layout)
+	size := gtx.Dp(26)
+	gtx.Constraints.Min = image.Pt(size, size)
+	gtx.Constraints.Max = image.Pt(size, size)
+	draw := func(gtx layout.Context) layout.Dimensions {
+		return layout.Background{}.Layout(gtx,
+			func(gtx layout.Context) layout.Dimensions {
+				bg := colorSurface
+				if !enabled {
+					bg = colorCard
+				}
+				bordered(gtx, 6, bg, colorBorder)
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			},
+			func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(a.theme, 13, label)
+					if enabled {
+						l.Color = colorText
+					} else {
+						l.Color = colorBorder
+					}
+					return l.Layout(gtx)
+				})
+			},
+		)
 	}
-	return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(4).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			l := material.Label(a.theme, 12, label)
-			l.Color = colorText
-			return l.Layout(gtx)
-		})
-	})
+	if !enabled {
+		return draw(gtx)
+	}
+	return btn.Layout(gtx, draw)
 }

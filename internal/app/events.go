@@ -1,21 +1,9 @@
 package app
 
 import (
-	"os"
-	"time"
-
 	"gioui.org/layout"
 	"gioui.org/widget"
 )
-
-func dbgLog(msg string) {
-	f, err := os.OpenFile(`C:\Users\gense\AppData\Local\Temp\vwriter_test\click.log`, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	f.WriteString(time.Now().Format("15:04:05.000") + " " + msg + "\n")
-}
 
 // handleEvents processes widget events for the current frame.
 func (a *App) handleEvents(gtx layout.Context) {
@@ -29,7 +17,6 @@ func (a *App) handleEvents(gtx layout.Context) {
 		a.addFile()
 	}
 	if a.addMediaCardBtn.Clicked(gtx) {
-		dbgLog("addMediaCardBtn Clicked fired")
 		a.addMedia()
 	}
 	if a.addMediaBtn.Clicked(gtx) {

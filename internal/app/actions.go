@@ -138,10 +138,8 @@ func (a *App) addMedia() {
 	go func() {
 		files, err := a.explorer.ChooseFiles(mediaExtensions...)
 		if err != nil {
-			dbgLog(fmt.Sprintf("addMedia: ChooseFiles err=%v", err))
 			return
 		}
-		dbgLog(fmt.Sprintf("addMedia: ChooseFiles returned %d files", len(files)))
 		if len(files) == 0 {
 			return
 		}
@@ -152,17 +150,13 @@ func (a *App) addMedia() {
 			path := filePath(file)
 			file.Close()
 			if path == "" {
-				dbgLog("addMedia: empty path for a file")
 				continue
 			}
-			dbgLog(fmt.Sprintf("addMedia: path=%q", path))
 			if _, err := a.engine.Store.Add(a.session, path); err != nil {
-				dbgLog(fmt.Sprintf("addMedia: Store.Add err=%v", err))
 				a.mu.Lock()
 				a.pushToast(errorText(err), errorDetails(err), true)
 				a.mu.Unlock()
 			} else {
-				dbgLog(fmt.Sprintf("addMedia: Store.Add OK for %q", path))
 				a.autoSaveCurrentPreset()
 			}
 		}
