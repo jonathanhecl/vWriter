@@ -7,11 +7,10 @@ import (
 	_ "image/png"
 	"os"
 
-	"gioui.org/gesture"
+	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -22,6 +21,12 @@ import (
 
 	"github.com/jonathanhecl/vWriter/internal/media"
 )
+
+// mediaDragEngageDp is the horizontal travel a press must exceed before the
+// row starts dragging. It is far larger than the platform touch slop so that
+// ordinary clicks (which always carry a few pixels of jitter) reach the card
+// buttons instead of being stolen by the scroll gesture.
+const mediaDragEngageDp = 24
 
 // assetWidgets holds the per-asset widget state.
 type assetWidgets struct {
@@ -213,37 +218,6 @@ func (a *App) layoutMediaSection(gtx layout.Context) layout.Dimensions {
 							return a.layoutAddMediaCard(gtx)
 						})
 
-						// Horizontal drag scrolls the row; the gesture grabs the
-						// pointer past touch slop so card buttons still work.
-						defer clip.Rect(image.Rectangle{Max: dims.Size}).Push(gtx.Ops).Pop()
-						a.mediaDrag.Add(gtx.Ops)
-						if ev, ok := a.mediaDrag.Update(gtx.Metric, gtx.Source, gesture.Horizontal); ok {
-							switch ev.Kind {
-							case pointer.Press:
-								a.dragStartX = ev.Position.X
-								a.dragAccum = 0
-							case pointer.Drag:
-								a.dragAccum += ev.Position.X - a.dragStartX
-								a.dragStartX = ev.Position.X
-								step := float32(gtx.Dp(155))
-								for a.dragAccum <= -step {
-									a.scrollMediaBy(1)
-									a.dragAccum += step
-								}
-								for a.dragAccum >= step {
-									a.scrollMediaBy(-1)
-									a.dragAccum -= step
-								}
-							case pointer.Release, pointer.Cancel:
-								step := float32(gtx.Dp(155))
-								if a.dragAccum <= -step/2 {
-									a.scrollMediaBy(1)
-								} else if a.dragAccum >= step/2 {
-									a.scrollMediaBy(-1)
-								}
-								a.dragAccum = 0
-							}
-						}
 						return dims
 					}),
 					// Interactive Horizontal Scrollbar Track & Thumb
@@ -338,6 +312,25 @@ func (a *App) filterPill(gtx layout.Context, btn *widget.Clickable, label string
 }
 
 func (a *App) layoutAddMediaCard(gtx layout.Context) layout.Dimensions {
+	if !a.dbgCardLaidOut {
+		a.dbgCardLaidOut = true
+		dbgLog("layoutAddMediaCard: laid out")
+	}
+	event.Op(gtx.Ops, &a.dbgCardProbe)
+	for {
+		p, ok := gtx.Event(pointer.Filter{
+			Target: &a.dbgCardProbe,
+			Kinds:  pointer.Press | pointer.Release | pointer.Enter | pointer.Leave | pointer.Cancel | pointer.Drag,
+		})
+		if !ok {
+			break
+		}
+		ev, ok := p.(pointer.Event)
+		if !ok {
+			continue
+		}
+		dbgLog(fmt.Sprintf("cardProbe kind=%v pos=%v", ev.Kind, ev.Position))
+	}
 	cardWidth := gtx.Dp(145)
 	cardHeight := gtx.Dp(135)
 	gtx.Constraints.Min = image.Pt(cardWidth, cardHeight)

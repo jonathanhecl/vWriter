@@ -14,15 +14,15 @@ import (
 	"gioui.org/app"
 	"gioui.org/gesture"
 	"gioui.org/io/clipboard"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gioui.org/x/explorer"
-
 	"github.com/jonathanhecl/vWriter/internal/config"
 	"github.com/jonathanhecl/vWriter/internal/engine"
+	"github.com/jonathanhecl/vWriter/internal/explorer"
 	"github.com/jonathanhecl/vWriter/internal/media"
 )
 
@@ -109,12 +109,18 @@ type App struct {
 	scrollLeftBtn      widget.Clickable
 	scrollRightBtn     widget.Clickable
 	scrollbarClickable widget.Clickable
-	mediaDrag          gesture.Drag
-	dividerDrag        gesture.Drag
-	mediaFilter        string // "all", "image", "video", "audio"
-	dragStartX         float32
-	dragAccum          float32 // accumulated drag pixels since the last item snap
-	mediaTotalItems    int     // item count of the media row from the last layout
+	// Media row manual drag state. The handler stays passive until the press
+	// travels mediaDragEngageDp so card buttons keep receiving clicks.
+	mediaDragTag    struct{}
+	dragActive      bool
+	dragEngaged     bool
+	dragPID         pointer.ID
+	dividerDrag     gesture.Drag
+	mediaFilter     string // "all", "image", "video", "audio"
+	dragStartX      float32
+	dragLastX       float32
+	dragAccum       float32 // accumulated drag pixels since the last item snap
+	mediaTotalItems int     // item count of the media row from the last layout
 	// Divider drag state and last window width (UI goroutine only).
 	dividerPressX     float32
 	dividerStartWidth int
@@ -130,6 +136,8 @@ type App struct {
 	modalStateSet     *modalState
 	modalFrameIndex   int
 	toastClicks       []toastClick
+	dbgCardLaidOut    bool
+	dbgCardProbe      struct{}
 
 	presetStore      *config.PresetStore
 	presetDropdown   dropdown
